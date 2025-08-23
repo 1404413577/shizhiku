@@ -182,11 +182,6 @@
             <el-icon><Search /></el-icon>
             <span>搜索</span>
           </el-menu-item>
-
-          <el-menu-item v-if="isDev" index="/dynamic-docs-test">
-            <el-icon><Tools /></el-icon>
-            <span>动态文档测试</span>
-          </el-menu-item>
         </el-menu>
       </div>
 
@@ -212,7 +207,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, Tools } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -223,16 +218,12 @@ const fileInput = ref(null)
 const searchQuery = ref('')
 const selectedTags = ref([])
 
-// 开发环境标识
-const isDev = computed(() => import.meta.env.DEV)
-
 // 当前激活的导航项
 const activeNav = computed(() => {
   const path = route.path
   if (path === '/') return '/'
   if (path.startsWith('/md-docs')) return '/md-docs'
   if (path.startsWith('/search')) return '/search'
-  if (path.startsWith('/dynamic-docs-test')) return '/dynamic-docs-test'
   return '/'
 })
 

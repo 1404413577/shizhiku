@@ -30,12 +30,6 @@ const routes = [
     name: 'MdDocs',
     component: () => import('@/views/MdDocs.vue'),
     meta: { title: 'Markdown 文档' }
-  },
-  {
-    path: '/dynamic-docs-test',
-    name: 'DynamicDocsTest',
-    component: () => import('@/views/DynamicDocsTest.vue'),
-    meta: { title: '动态文档测试' }
   }
 ]
 
