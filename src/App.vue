@@ -123,4 +123,74 @@ body {
 .hljs-strong {
   font-weight: bold;
 }
+
+/* 统一按钮样式 */
+.el-button {
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.el-button--small {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+.el-button--primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.el-button--primary:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary-light);
+}
+
+.el-button--default {
+  background-color: var(--color-bg-elevated);
+  border-color: var(--color-border-primary);
+  color: var(--color-text-primary);
+}
+
+.el-button--default:hover {
+  background-color: var(--color-bg-secondary);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.el-button.is-text {
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+}
+
+.el-button.is-text:hover {
+  color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.el-button.is-text.el-button--danger {
+  color: var(--color-danger);
+}
+
+.el-button.is-text.el-button--danger:hover {
+  background-color: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+/* 按钮组样式 */
+.el-button-group .el-button {
+  margin: 0;
+}
+
+/* 图标按钮样式 */
+.el-button .el-icon {
+  margin-right: 4px;
+}
+
+.el-button.is-circle,
+.el-button.is-round {
+  padding: 8px;
+}
 </style>

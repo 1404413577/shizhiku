@@ -4,11 +4,12 @@
     <el-aside width="300px" class="sidebar">
       <div class="sidebar-header">
         <h2>知识库</h2>
-        <el-button 
-          type="primary" 
+        <el-button
+          type="primary"
           @click="createNewDocument"
           :icon="Plus"
           size="small"
+          class="create-document-btn"
         >
           新建文档
         </el-button>
@@ -54,9 +55,9 @@
               text
               @click="reloadPresetDocs"
               title="重新加载预设文档"
-            >
-              <el-icon><Refresh /></el-icon>
-            </el-button>
+              :icon="Refresh"
+              class="reload-btn"
+            />
           </div>
           <div
             v-for="doc in presetDocuments"
@@ -77,6 +78,8 @@
                   text
                   @click.stop="editDocument(doc)"
                   :icon="Edit"
+                  title="编辑文档"
+                  class="action-btn"
                 />
               </div>
             </div>
@@ -116,6 +119,8 @@
                   text
                   @click.stop="editDocument(doc)"
                   :icon="Edit"
+                  title="编辑文档"
+                  class="action-btn"
                 />
                 <el-button
                   size="small"
@@ -123,6 +128,8 @@
                   type="danger"
                   @click.stop="deleteDocument(doc)"
                   :icon="Delete"
+                  title="删除文档"
+                  class="action-btn danger-btn"
                 />
               </div>
             </div>
@@ -149,11 +156,29 @@
       <!-- 底部操作 -->
       <div class="sidebar-footer">
         <div class="footer-actions">
-          <el-button size="small" @click="refreshPresetDocs" :loading="refreshing" :icon="Refresh">
+          <el-button
+            size="small"
+            @click="refreshPresetDocs"
+            :loading="refreshing"
+            :icon="Refresh"
+            class="footer-btn"
+          >
             刷新文档
           </el-button>
-          <el-button size="small" @click="exportData">导出数据</el-button>
-          <el-button size="small" @click="importData">导入数据</el-button>
+          <el-button
+            size="small"
+            @click="exportData"
+            class="footer-btn"
+          >
+            导出数据
+          </el-button>
+          <el-button
+            size="small"
+            @click="importData"
+            class="footer-btn"
+          >
+            导入数据
+          </el-button>
         </div>
       </div>
     </el-aside>
@@ -470,6 +495,40 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* 按钮样式 */
+.create-document-btn {
+  width: 100%;
+  font-weight: 600;
+}
+
+.reload-btn {
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.reload-btn:hover {
+  opacity: 1;
+}
+
+.action-btn {
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.danger-btn:hover {
+  color: var(--color-danger) !important;
+}
+
+.footer-btn {
+  width: 100%;
+  justify-content: flex-start;
 }
 
 .main-content {

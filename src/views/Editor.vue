@@ -9,31 +9,34 @@
           class="title-input"
           @blur="saveDocument"
         />
-        <el-button 
-          type="primary" 
+        <el-button
+          type="primary"
           @click="saveDocument"
           :loading="saving"
           :icon="Document"
           size="small"
+          class="save-btn"
         >
           保存
         </el-button>
       </div>
       
       <div class="toolbar-right">
-        <el-button 
+        <el-button
           @click="togglePreview"
           :type="showPreview ? 'primary' : 'default'"
           :icon="View"
           size="small"
+          class="preview-btn"
         >
           {{ showPreview ? '隐藏预览' : '显示预览' }}
         </el-button>
-        
-        <el-button 
+
+        <el-button
           @click="$router.push(`/view/${documentId}`)"
           :icon="Reading"
           size="small"
+          class="view-btn"
         >
           查看
         </el-button>
@@ -67,6 +70,7 @@
         size="small"
         @click="showInput"
         :icon="Plus"
+        class="add-tag-btn"
       >
         添加标签
       </el-button>
@@ -485,5 +489,33 @@ watch(() => route.params.id, async (newId) => {
   .title-input {
     width: 100%;
   }
+}
+
+/* 按钮样式 */
+.save-btn {
+  font-weight: 600;
+}
+
+.preview-btn {
+  min-width: 100px;
+}
+
+.view-btn {
+  min-width: 60px;
+}
+
+.add-tag-btn {
+  border-style: dashed;
+  opacity: 0.8;
+}
+
+.add-tag-btn:hover {
+  opacity: 1;
+  border-style: solid;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 8px;
 }
 </style>

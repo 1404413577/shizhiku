@@ -25,24 +25,30 @@
       </div>
       
       <div class="header-actions">
-        <el-button 
+        <el-button
           type="primary"
           @click="editDocument"
           :icon="Edit"
+          size="small"
+          class="edit-btn"
         >
           编辑
         </el-button>
-        
-        <el-button 
+
+        <el-button
           @click="exportDocument"
           :icon="Download"
+          size="small"
+          class="export-btn"
         >
           导出
         </el-button>
-        
-        <el-button 
+
+        <el-button
           @click="shareDocument"
           :icon="Share"
+          size="small"
+          class="share-btn"
         >
           分享
         </el-button>
@@ -62,7 +68,8 @@
           text
           @click="toggleToc"
           :icon="tocCollapsed ? Expand : Fold"
-          class="toc-toggle"
+          class="toc-toggle-btn"
+          :title="tocCollapsed ? '展开目录' : '折叠目录'"
         />
       </div>
 
@@ -148,14 +155,14 @@
               class="share-input"
             >
               <template #append>
-                <el-button @click="copyToClipboard(shareUrl)">复制</el-button>
+                <el-button @click="copyToClipboard(shareUrl)" size="small" class="copy-btn">复制</el-button>
               </template>
             </el-input>
           </el-form-item>
           
           <el-form-item label="Markdown">
-            <el-button @click="copyMarkdown">复制 Markdown</el-button>
-            <el-button @click="downloadMarkdown">下载 .md 文件</el-button>
+            <el-button @click="copyMarkdown" size="small" class="copy-md-btn">复制 Markdown</el-button>
+            <el-button @click="downloadMarkdown" size="small" class="download-md-btn">下载 .md 文件</el-button>
           </el-form-item>
         </el-form>
       </div>
@@ -915,5 +922,37 @@ html {
   .toc-level-3 .toc-link {
     padding-left: 35px;
   }
+}
+
+/* 按钮样式 */
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.edit-btn {
+  font-weight: 600;
+}
+
+.export-btn,
+.share-btn {
+  min-width: 60px;
+}
+
+.toc-toggle-btn {
+  opacity: 0.7;
+  transition: all 0.2s;
+}
+
+.toc-toggle-btn:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.copy-btn,
+.copy-md-btn,
+.download-md-btn {
+  min-width: 80px;
 }
 </style>
