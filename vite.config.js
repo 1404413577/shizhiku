@@ -39,5 +39,25 @@ export default defineConfig({
     }
   },
   // 确保 docs 文件夹在开发时可以被访问
-  publicDir: 'public'
+  publicDir: 'public',
+  // 生产环境优化
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia'],
+          ui: ['element-plus'],
+          utils: ['markdown-it', 'highlight.js', 'fuse.js', 'localforage']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000,
+    // 确保构建时包含所有必要的文件
+    assetsInclude: ['**/*.md']
+  },
+  // 预览服务器配置
+  preview: {
+    port: 4173,
+    host: true
+  }
 })
