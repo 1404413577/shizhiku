@@ -195,7 +195,11 @@ export const useDocumentsStore = defineStore('documents', {
 
       try {
         const results = searchEngine.search(query.trim())
-        this.searchResults = results.map(result => result.item)
+        // 始终返回指向 state.documents 的同一引用，避免引用不一致导致 includes 失败
+        const byId = new Map(this.documents.map(d => [d.id, d]))
+        this.searchResults = results
+          .map(r => byId.get(r.item.id))
+          .filter(Boolean)
         console.log('📝 Store: 搜索完成，结果数量:', this.searchResults.length)
       } catch (error) {
         console.error('📝 Store: 搜索失败:', error)
