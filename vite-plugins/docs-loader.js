@@ -5,8 +5,48 @@ import path from 'path'
  * Vite 插件：在构建时加载 docs 文件夹中的 Markdown 文件
  */
 export function docsLoader() {
+  let docsCache = null
+  let lastModified = 0
+
   return {
     name: 'docs-loader',
+    configureServer(server) {
+      // 开发环境下监听 docs 文件夹变化
+      const docsDir = path.resolve(process.cwd(), 'docs')
+      if (fs.existsSync(docsDir)) {
+        server.watcher.add(docsDir)
+        server.watcher.on('change', (file) => {
+          if (file.includes('docs') && file.endsWith('.md')) {
+            console.log(`📄 检测到文档变化: ${file}`)
+            docsCache = null // 清除缓存
+            // 通知客户端重新加载
+            server.ws.send({
+              type: 'full-reload'
+            })
+          }
+        })
+        server.watcher.on('add', (file) => {
+          if (file.includes('docs') && file.endsWith('.md')) {
+            console.log(`📄 检测到新文档: ${file}`)
+            docsCache = null // 清除缓存
+            // 通知客户端重新加载
+            server.ws.send({
+              type: 'full-reload'
+            })
+          }
+        })
+        server.watcher.on('unlink', (file) => {
+          if (file.includes('docs') && file.endsWith('.md')) {
+            console.log(`📄 检测到文档删除: ${file}`)
+            docsCache = null // 清除缓存
+            // 通知客户端重新加载
+            server.ws.send({
+              type: 'full-reload'
+            })
+          }
+        })
+      }
+    },
     generateBundle() {
       const docsDir = path.resolve(process.cwd(), 'docs')
       
@@ -87,14 +127,16 @@ export function docsLoader() {
 /**
  * 开发模式下的文档加载器
  */
-export function createDevDocsLoader() {
+export function createDevDocsLoader(forceReload = false) {
   const docsDir = path.resolve(process.cwd(), 'docs')
-  
+
   if (!fs.existsSync(docsDir)) {
+    console.log('📁 docs 文件夹不存在')
     return []
   }
 
   const documents = []
+  console.log('📚 开始扫描 docs 文件夹...')
   
   function readDocsRecursively(dir, basePath = '') {
     const files = fs.readdirSync(dir)
@@ -129,7 +171,7 @@ export function createDevDocsLoader() {
         }
         
         const document = {
-          id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `preset-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
           title,
           content,
           tags: Array.from(new Set(tags)),
@@ -138,12 +180,14 @@ export function createDevDocsLoader() {
           isPreset: true,
           originalPath: relativePath
         }
-        
+
+        console.log(`  📄 加载文档: ${title} (${relativePath})`)
         documents.push(document)
       }
     })
   }
-  
+
   readDocsRecursively(docsDir)
+  console.log(`✅ 开发环境加载完成，共找到 ${documents.length} 个文档`)
   return documents
 }

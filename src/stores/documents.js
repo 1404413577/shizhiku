@@ -72,30 +72,53 @@ export const useDocumentsStore = defineStore('documents', {
     },
 
     // 加载预设文档（如果需要）
-    async loadPresetDocsIfNeeded() {
+    async loadPresetDocsIfNeeded(forceReload = false) {
       try {
+        // 如果强制重新加载，清除缓存
+        if (forceReload) {
+          console.log('🔄 强制重新加载预设文档')
+          presetDocsLoader.clearCache()
+        }
+
         // 检查是否已经加载过预设文档
-        if (presetDocsLoader.isAlreadyLoaded()) {
+        if (!forceReload && presetDocsLoader.isAlreadyLoaded()) {
+          console.log('📚 预设文档已加载，跳过')
           return
         }
 
         // 检查是否需要加载预设文档
-        const shouldLoad = await presetDocsLoader.shouldLoadPresetDocs(this.documents)
+        const shouldLoad = forceReload || await presetDocsLoader.shouldLoadPresetDocs(this.documents)
         if (!shouldLoad) {
+          console.log('📚 不需要加载预设文档')
           return
         }
 
         // 加载预设文档
-        const presetDocs = await presetDocsLoader.loadPresetDocs()
+        console.log('📚 开始加载预设文档...')
+        const presetDocs = await presetDocsLoader.loadPresetDocs(forceReload)
 
         if (presetDocs && presetDocs.length > 0) {
+          // 如果是强制重新加载，先删除现有的预设文档
+          if (forceReload) {
+            console.log('🗑️ 删除现有预设文档...')
+            const existingPresetDocs = this.documents.filter(doc => doc.isPreset)
+            for (const doc of existingPresetDocs) {
+              try {
+                await storage.deleteDocument(doc.id)
+              } catch (error) {
+                console.error('删除预设文档失败:', doc.title, error)
+              }
+            }
+          }
+
           // 保存预设文档到存储
+          console.log(`💾 保存 ${presetDocs.length} 个预设文档到存储...`)
           for (const doc of presetDocs) {
             try {
-              console.log('正在保存预设文档:', doc.title, doc)
+              console.log(`  📄 保存: ${doc.title}`)
               await storage.saveDocument(doc.id, doc)
             } catch (error) {
-              console.error('保存预设文档失败:', doc.title, error)
+              console.error('❌ 保存预设文档失败:', doc.title, error)
               console.error('文档数据:', doc)
               throw error
             }
@@ -107,7 +130,9 @@ export const useDocumentsStore = defineStore('documents', {
           // 标记为已加载
           presetDocsLoader.markAsLoaded()
 
-          console.log(`✅ 已加载 ${presetDocs.length} 个预设文档`)
+          console.log(`✅ 已成功加载 ${presetDocs.length} 个预设文档`)
+        } else {
+          console.log('⚠️ 没有找到预设文档')
         }
       } catch (error) {
         console.warn('加载预设文档失败:', error)
@@ -279,6 +304,18 @@ export const useDocumentsStore = defineStore('documents', {
     // 获取用户创建的文档列表
     getUserDocuments() {
       return this.documents.filter(doc => !doc.isPreset)
+    },
+
+    // 强制刷新预设文档
+    async refreshPresetDocs() {
+      console.log('🔄 手动刷新预设文档...')
+      try {
+        await this.loadPresetDocsIfNeeded(true)
+        console.log('✅ 预设文档刷新完成')
+      } catch (error) {
+        console.error('❌ 刷新预设文档失败:', error)
+        throw error
+      }
     }
   }
 })

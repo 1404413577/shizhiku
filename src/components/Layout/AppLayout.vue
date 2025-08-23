@@ -148,8 +148,13 @@
 
       <!-- 底部操作 -->
       <div class="sidebar-footer">
-        <el-button size="small" @click="exportData">导出数据</el-button>
-        <el-button size="small" @click="importData">导入数据</el-button>
+        <div class="footer-actions">
+          <el-button size="small" @click="refreshPresetDocs" :loading="refreshing" :icon="Refresh">
+            刷新文档
+          </el-button>
+          <el-button size="small" @click="exportData">导出数据</el-button>
+          <el-button size="small" @click="importData">导入数据</el-button>
+        </div>
       </div>
     </el-aside>
 
@@ -185,6 +190,7 @@ const fileInput = ref(null)
 // 响应式数据
 const searchQuery = ref('')
 const selectedTags = ref([])
+const refreshing = ref(false)
 
 // 计算属性
 const filteredDocuments = computed(() => documentsStore.filteredDocuments)
@@ -224,6 +230,20 @@ const userDocuments = computed(() => {
 const handleSearch = (query) => {
   console.log('🔍 AppLayout: 处理搜索输入:', query)
   documentsStore.searchDocuments(query)
+}
+
+// 刷新预设文档
+const refreshPresetDocs = async () => {
+  refreshing.value = true
+  try {
+    await documentsStore.refreshPresetDocs()
+    ElMessage.success('文档刷新成功')
+  } catch (error) {
+    console.error('刷新文档失败:', error)
+    ElMessage.error('文档刷新失败')
+  } finally {
+    refreshing.value = false
+  }
 }
 
 const createNewDocument = async () => {
@@ -444,7 +464,11 @@ onMounted(async () => {
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid #e0e0e0;
+}
+
+.footer-actions {
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 

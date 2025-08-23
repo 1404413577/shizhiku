@@ -11,31 +11,47 @@ export class PresetDocsLoader {
   /**
    * 加载预设文档
    */
-  async loadPresetDocs() {
+  async loadPresetDocs(forceReload = false) {
     try {
       let docs = []
 
       // 生产环境：从构建时生成的 JSON 文件加载
       if (import.meta.env.PROD) {
+        console.log('🏭 生产环境：从 preset-docs.json 加载文档')
         const response = await fetch('/preset-docs.json')
         if (response.ok) {
           docs = await response.json()
+          console.log(`📚 从 JSON 文件加载了 ${docs.length} 个文档`)
+        } else {
+          console.warn('❌ 无法加载 preset-docs.json')
         }
       } else {
-        // 开发环境：从虚拟模块加载
+        // 开发环境：直接从文件系统加载
+        console.log('🔧 开发环境：直接从 docs 文件夹加载文档')
         try {
-          const { default: virtualDocs } = await import('virtual:preset-docs')
-          docs = virtualDocs
+          // 动态导入以确保获取最新内容
+          const { createDevDocsLoader } = await import('../../vite-plugins/docs-loader.js')
+          docs = createDevDocsLoader(forceReload)
+          console.log(`📚 从文件系统加载了 ${docs.length} 个文档`)
         } catch (error) {
-          console.warn('虚拟模块加载失败，使用备用方案:', error)
-          docs = this.getDevPresetDocs()
+          console.warn('❌ 文件系统加载失败，使用虚拟模块:', error)
+          try {
+            const { default: virtualDocs } = await import('virtual:preset-docs')
+            docs = virtualDocs
+            console.log(`📚 从虚拟模块加载了 ${docs.length} 个文档`)
+          } catch (virtualError) {
+            console.warn('❌ 虚拟模块加载失败，使用备用方案:', virtualError)
+            docs = this.getDevPresetDocs()
+          }
         }
       }
 
       // 清理数据确保可序列化
-      return docs.map(doc => this.cleanDocumentData(doc))
+      const cleanedDocs = docs.map(doc => this.cleanDocumentData(doc))
+      console.log(`✅ 预设文档加载完成，共 ${cleanedDocs.length} 个文档`)
+      return cleanedDocs
     } catch (error) {
-      console.warn('加载预设文档失败:', error)
+      console.error('❌ 加载预设文档失败:', error)
     }
 
     return []
@@ -327,6 +343,25 @@ npm install -D vite-plugin-pwa
    */
   isAlreadyLoaded() {
     return localStorage.getItem('preset-docs-loaded') === 'true'
+  }
+
+  /**
+   * 强制重新加载预设文档
+   */
+  async forceReload() {
+    console.log('🔄 强制重新加载预设文档...')
+    this.loaded = false
+    localStorage.removeItem('preset-docs-loaded')
+    return await this.loadPresetDocs(true)
+  }
+
+  /**
+   * 清除缓存
+   */
+  clearCache() {
+    this.loaded = false
+    localStorage.removeItem('preset-docs-loaded')
+    console.log('🗑️ 已清除预设文档缓存')
   }
 }
 
