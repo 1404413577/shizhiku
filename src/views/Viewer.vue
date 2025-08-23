@@ -3,18 +3,18 @@
     <!-- 文档头部 -->
     <div class="document-header">
       <div class="header-content">
-        <h1 class="document-title">{{ document?.title }}</h1>
+        <h1 class="document-title">{{ currentDoc?.title }}</h1>
         <div class="document-meta">
           <span class="meta-item">
-            创建时间: {{ formatDate(document?.createdAt) }}
+            创建时间: {{ formatDate(currentDoc?.createdAt) }}
           </span>
           <span class="meta-item">
-            更新时间: {{ formatDate(document?.updatedAt) }}
+            更新时间: {{ formatDate(currentDoc?.updatedAt) }}
           </span>
         </div>
-        <div class="document-tags" v-if="document?.tags && document.tags.length > 0">
+        <div class="document-tags" v-if="currentDoc?.tags && currentDoc.tags.length > 0">
           <el-tag
-            v-for="tag in document.tags"
+            v-for="tag in currentDoc.tags"
             :key="tag"
             type="info"
             size="small"
@@ -67,7 +67,7 @@
       </div>
 
       <div class="toc-content" v-show="!tocCollapsed">
-        <ul class="toc-list">
+        <ul class="toc-list" v-if="headings.length > 0">
           <li
             v-for="heading in headings"
             :key="heading.anchor"
@@ -86,6 +86,21 @@
             </a>
           </li>
         </ul>
+
+        <!-- 使用提示 -->
+        <div class="toc-tip" v-if="headings.length > 0">
+          <div class="tip-text">
+            <el-icon><InfoFilled /></el-icon>
+            快捷键: Ctrl+Shift+T
+          </div>
+
+          <!-- 开发环境调试按钮 -->
+          <div v-if="isDev" class="debug-actions">
+            <el-button size="small" @click="runTocDiagnosis">
+              🔍 诊断目录
+            </el-button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -100,7 +115,7 @@
 
         <!-- 文档内容 -->
         <div
-          v-else-if="document"
+          v-else-if="currentDoc"
           class="markdown-content"
           v-html="renderedContent"
           ref="contentRef"
@@ -154,15 +169,20 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage } from 'element-plus'
-import { Edit, Download, Share, Expand, Fold } from '@element-plus/icons-vue'
+import { Edit, Download, Share, Expand, Fold, InfoFilled } from '@element-plus/icons-vue'
 import { saveAs } from 'file-saver'
+
+// 在开发环境中引入调试工具
+if (import.meta.env.DEV) {
+  import('@/utils/tocDebug.js')
+}
 
 const route = useRoute()
 const router = useRouter()
 const documentsStore = useDocumentsStore()
 
 // 响应式数据
-const document = ref(null)
+const currentDoc = ref(null)
 const shareDialogVisible = ref(false)
 const contentRef = ref(null)
 const loading = ref(false)
@@ -174,18 +194,21 @@ const headingObserver = ref(null)
 
 // 计算属性
 const renderedContent = computed(() => {
-  if (!document.value?.content) return ''
-  return markdownProcessor.render(document.value.content)
+  if (!currentDoc.value?.content) return ''
+  return markdownProcessor.render(currentDoc.value.content)
 })
 
 const headings = computed(() => {
-  if (!document.value?.content) return []
-  return markdownProcessor.extractHeadings(document.value.content)
+  if (!currentDoc.value?.content) return []
+  return markdownProcessor.extractHeadings(currentDoc.value.content)
 })
 
 const shareUrl = computed(() => {
-  return `${window.location.origin}${window.location.pathname}#/view/${document.value?.id}`
+  return `${window.location.origin}${window.location.pathname}#/view/${currentDoc.value?.id}`
 })
+
+// 开发环境标识
+const isDev = computed(() => import.meta.env.DEV)
 
 // 方法
 const loadDocument = async () => {
@@ -200,9 +223,9 @@ const loadDocument = async () => {
   try {
     const doc = await documentsStore.getDocument(documentId)
     if (doc) {
-      document.value = doc
-      // 设置页面标题
-      document.title = `${doc.title} - 知识库`
+      currentDoc.value = doc
+      // 设置页面标题（使用全局 window.document）
+      window.document.title = `${doc.title} - 知识库`
     } else {
       ElMessage.error('文档不存在')
       router.push('/')
@@ -217,15 +240,16 @@ const loadDocument = async () => {
 }
 
 const editDocument = () => {
-  router.push(`/editor/${document.value.id}`)
+  if (!currentDoc.value) return
+  router.push(`/editor/${currentDoc.value.id}`)
 }
 
 const exportDocument = () => {
-  if (!document.value) return
-  
-  const content = `# ${document.value.title}\n\n${document.value.content}`
+  if (!currentDoc.value) return
+
+  const content = `# ${currentDoc.value.title}\n\n${currentDoc.value.content}`
   const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-  saveAs(blob, `${document.value.title}.md`)
+  saveAs(blob, `${currentDoc.value.title}.md`)
   ElMessage.success('文档已导出')
 }
 
@@ -243,9 +267,9 @@ const copyToClipboard = async (text) => {
 }
 
 const copyMarkdown = async () => {
-  if (!document.value) return
-  
-  const content = `# ${document.value.title}\n\n${document.value.content}`
+  if (!currentDoc.value) return
+
+  const content = `# ${currentDoc.value.title}\n\n${currentDoc.value.content}`
   await copyToClipboard(content)
 }
 
@@ -254,17 +278,44 @@ const downloadMarkdown = () => {
   shareDialogVisible.value = false
 }
 
+// 获取最近的可滚动容器（垂直方向）
+const getScrollContainer = (el) => {
+  let node = el?.parentElement
+  while (node && node !== document.body) {
+    const style = getComputedStyle(node)
+    if (/(auto|scroll)/.test(style.overflowY)) return node
+    node = node.parentElement
+  }
+  // 回退到 Element Plus 的 el-main 或 window
+  return document.querySelector('.el-main') || window
+}
+
 const scrollToHeading = (anchor) => {
   const element = document.getElementById(anchor)
-  if (element) {
-    element.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-      inline: 'nearest'
-    })
-    // 更新活跃标题
-    activeHeading.value = anchor
+  if (!element) {
+    // 调试输出
+    console.error('❌ 未找到锚点元素:', anchor)
+    return
   }
+
+  const container = getScrollContainer(element)
+
+  // 如果容器是 window，使用 window.scrollTo；否则使用容器.scrollTo
+  const offset = 100 // 顶部预留空间，避免被顶部遮住
+  if (container === window) {
+    const rect = element.getBoundingClientRect()
+    const top = window.pageYOffset + rect.top - offset
+    window.scrollTo({ top, behavior: 'smooth' })
+  } else {
+    const elRect = element.getBoundingClientRect()
+    const cRect = container.getBoundingClientRect()
+    const current = container.scrollTop
+    const targetTop = current + (elRect.top - cRect.top) - offset
+    container.scrollTo({ top: targetTop, behavior: 'smooth' })
+  }
+
+  // 更新活跃标题
+  activeHeading.value = anchor
 }
 
 // 切换目录显示/隐藏
@@ -317,6 +368,24 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleString('zh-CN')
 }
 
+// 调试方法
+const runTocDiagnosis = () => {
+  if (window.tocDebug) {
+    window.tocDebug.fullDiagnosis()
+  } else {
+    console.log('调试工具未加载')
+  }
+}
+
+// 键盘快捷键处理
+const handleKeydown = (event) => {
+  // Ctrl/Cmd + Shift + T: 切换目录显示
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'T') {
+    event.preventDefault()
+    toggleToc()
+  }
+}
+
 // 生命周期
 onMounted(async () => {
   await loadDocument()
@@ -327,45 +396,76 @@ onMounted(async () => {
   if (savedTocState !== null) {
     tocCollapsed.value = savedTocState === 'true'
   }
+
+  // 添加键盘事件监听
+  document.addEventListener('keydown', handleKeydown)
 })
 
-// 组件卸载时清理观察器
+// 组件卸载时清理观察器和事件监听
 onUnmounted(() => {
   if (headingObserver.value) {
     headingObserver.value.disconnect()
   }
+  document.removeEventListener('keydown', handleKeydown)
 })
 
 // 监听路由参数变化
 watch(() => route.params.id, async (newId, oldId) => {
   if (newId && newId !== oldId) {
     await loadDocument()
-    addHeadingIds()
+    // 延迟执行，确保DOM完全更新
+    setTimeout(() => {
+      addHeadingIds()
+    }, 200)
   }
 }, { immediate: false })
 
-// 为标题添加 ID 的辅助函数
+// 监听文档内容变化，确保在内容更新后重新设置ID
+watch(() => currentDoc.value, () => {
+  if (currentDoc.value) {
+    setTimeout(() => {
+      addHeadingIds()
+    }, 100)
+  }
+}, { flush: 'post' })
+
+// 为标题添加 ID 的辅助函数（按顺序一一对应，确保唯一）
 const addHeadingIds = () => {
   nextTick(() => {
-    if (contentRef.value) {
-      const headingElements = contentRef.value.querySelectorAll('h1, h2, h3, h4, h5, h6')
-      headingElements.forEach((el, index) => {
-        const heading = headings.value[index]
-        if (heading) {
-          el.id = heading.anchor
-          // 添加锚点样式类
-          el.classList.add('heading-anchor')
-        }
-      })
+    if (!contentRef.value) return
 
-      // 设置滚动监听
-      setupScrollSpy()
+    const headingElements = contentRef.value.querySelectorAll('h1, h2, h3, h4, h5, h6')
+    const used = new Set()
 
-      // 如果 URL 中有锚点，滚动到对应位置
-      if (window.location.hash) {
-        const anchor = window.location.hash.substring(1)
-        setTimeout(() => scrollToHeading(anchor), 100)
+    headingElements.forEach((el, index) => {
+      // 优先使用预生成的唯一锚点（按顺序）
+      let anchor = headings.value[index]?.anchor
+
+      // 退化处理：根据可见文本再次生成
+      if (!anchor) {
+        const text = (el.textContent || '').trim()
+        anchor = markdownProcessor.generateAnchor(text) || `heading-${index}`
       }
+
+      // 确保唯一
+      let unique = anchor
+      let i = 1
+      while (used.has(unique)) {
+        unique = `${anchor}-${i++}`
+      }
+      used.add(unique)
+
+      el.id = unique
+      el.classList.add('heading-anchor')
+    })
+
+    // 启动滚动监听
+    setupScrollSpy()
+
+    // 如果 URL 中有锚点，滚动到对应位置（稍作延迟等待布局完成）
+    if (window.location.hash) {
+      const anchor = window.location.hash.substring(1)
+      setTimeout(() => scrollToHeading(anchor), 200)
     }
   })
 }
@@ -373,11 +473,12 @@ const addHeadingIds = () => {
 
 <style scoped>
 .viewer-page {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
   background: white;
   min-height: 100vh;
+  position: relative;
 }
 
 .document-header {
@@ -423,16 +524,49 @@ const addHeadingIds = () => {
   flex-shrink: 0;
 }
 
-.table-of-contents {
-  background: #f9f9f9;
-  padding: 20px;
+/* 目录面板样式 */
+.toc-panel {
+  position: fixed;
+  top: 120px;
+  right: 20px;
+  width: 280px;
+  max-height: calc(100vh - 160px);
+  background: white;
+  border: 1px solid #e0e0e0;
   border-radius: 8px;
-  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-.table-of-contents h3 {
-  margin: 0 0 15px 0;
+.toc-panel.toc-collapsed {
+  width: 120px;
+}
+
+.toc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.toc-header h3 {
+  margin: 0;
   color: #333;
+  font-size: 16px;
+}
+
+.toc-toggle {
+  padding: 4px;
+}
+
+.toc-content {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding: 10px 0;
 }
 
 .toc-list {
@@ -442,44 +576,126 @@ const addHeadingIds = () => {
 }
 
 .toc-item {
-  margin: 5px 0;
+  margin: 2px 0;
 }
 
-.toc-item a {
-  color: #409eff;
+.toc-link {
+  color: #666;
   text-decoration: none;
   display: block;
-  padding: 2px 0;
-  transition: color 0.2s;
+  padding: 6px 20px;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-.toc-item a:hover {
-  color: #66b1ff;
+.toc-link:hover {
+  color: #409eff;
+  background: #f0f7ff;
 }
 
-.toc-level-1 {
-  font-weight: bold;
+.toc-item.toc-active .toc-link {
+  color: #409eff;
+  background: #e6f4ff;
+  border-left-color: #409eff;
+  font-weight: 500;
 }
 
-.toc-level-2 {
-  padding-left: 20px;
+/* 不同级别的缩进 */
+.toc-level-1 .toc-link {
+  font-weight: 600;
+  font-size: 15px;
 }
 
-.toc-level-3 {
+.toc-level-2 .toc-link {
+  padding-left: 30px;
+}
+
+.toc-level-3 .toc-link {
   padding-left: 40px;
-  font-size: 0.9em;
+  font-size: 13px;
 }
 
-.toc-level-4,
-.toc-level-5,
-.toc-level-6 {
+.toc-level-4 .toc-link {
+  padding-left: 50px;
+  font-size: 13px;
+}
+
+.toc-level-5 .toc-link,
+.toc-level-6 .toc-link {
   padding-left: 60px;
-  font-size: 0.85em;
-  color: #666;
+  font-size: 12px;
+  color: #999;
+}
+
+/* 目录提示样式 */
+.toc-tip {
+  padding: 10px 20px;
+  border-top: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+
+.tip-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #999;
+}
+
+.tip-text .el-icon {
+  font-size: 14px;
+}
+
+/* 文档内容区域 */
+.document-content-wrapper {
+  position: relative;
 }
 
 .document-content {
   line-height: 1.8;
+  transition: margin-right 0.3s ease;
+}
+
+.document-content.with-toc {
+  margin-right: 320px; /* 为目录面板留出空间 */
+}
+
+/* 标题锚点样式 */
+.heading-anchor {
+  scroll-margin-top: 100px; /* 滚动时的顶部偏移 */
+  scroll-behavior: smooth; /* 平滑滚动 */
+  position: relative;
+}
+
+.heading-anchor:hover::before {
+  content: '#';
+  position: absolute;
+  left: -25px;
+  color: #409eff;
+  font-weight: normal;
+  opacity: 0.7;
+}
+
+/* 确保页面可以滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+.viewer-page {
+  scroll-behavior: smooth;
+}
+
+/* 确保标题元素可见 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  scroll-margin-top: 100px;
+  position: relative;
 }
 
 .markdown-content {
@@ -612,36 +828,92 @@ const addHeadingIds = () => {
   text-align: center;
 }
 
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .document-content.with-toc {
+    margin-right: 300px;
+  }
+
+  .toc-panel {
+    width: 260px;
+  }
+}
+
 @media (max-width: 768px) {
   .viewer-page {
     padding: 15px;
   }
-  
+
   .document-header {
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .document-title {
     font-size: 2em;
   }
-  
+
   .header-actions {
     width: 100%;
     justify-content: center;
   }
-  
+
   .document-meta {
     flex-direction: column;
     gap: 8px;
   }
-  
-  .table-of-contents {
-    padding: 15px;
-  }
-  
+
   .markdown-content {
     font-size: 15px;
+  }
+
+  /* 移动端目录样式 */
+  .document-content.with-toc {
+    margin-right: 0;
+  }
+
+  .toc-panel {
+    position: fixed;
+    top: auto;
+    bottom: 20px;
+    right: 20px;
+    left: 20px;
+    width: auto;
+    max-height: 50vh;
+  }
+
+  .toc-panel.toc-collapsed {
+    width: auto;
+    height: 50px;
+  }
+
+  .toc-panel.toc-collapsed .toc-header {
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .toc-panel {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+
+  .toc-header h3 {
+    font-size: 14px;
+  }
+
+  .toc-link {
+    font-size: 13px;
+    padding: 5px 15px;
+  }
+
+  .toc-level-2 .toc-link {
+    padding-left: 25px;
+  }
+
+  .toc-level-3 .toc-link {
+    padding-left: 35px;
   }
 }
 </style>
