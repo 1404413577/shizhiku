@@ -182,6 +182,10 @@
             <el-icon><Search /></el-icon>
             <span>搜索</span>
           </el-menu-item>
+          <el-menu-item index="/search">
+            <el-icon><Search /></el-icon>
+            <span>关于我</span>
+          </el-menu-item>
         </el-menu>
       </div>
 

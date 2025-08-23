@@ -1,4 +1,5 @@
 import localforage from 'localforage'
+import { markdownProcessor } from './markdown.js'
 
 // 配置 localforage
 localforage.config({
@@ -41,9 +42,16 @@ export class DocumentStorage {
       const cleanDoc = this.cleanDocumentForStorage(document)
       console.log('清理后的文档:', cleanDoc)
 
+      // 自动生成摘要（如果有内容且没有摘要）
+      let summary = cleanDoc.summary
+      if (!summary && cleanDoc.content) {
+        summary = markdownProcessor.generateSummary(cleanDoc.content, 150)
+      }
+
       const doc = {
         ...cleanDoc,
         id,
+        summary,
         updatedAt: new Date().toISOString()
       }
 

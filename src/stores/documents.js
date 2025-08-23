@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { storage } from '@/utils/storage.js'
 import { searchEngine } from '@/utils/search.js'
 import { presetDocsLoader } from '@/utils/presetDocs.js'
+import { markdownProcessor } from '@/utils/markdown.js'
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -339,6 +340,43 @@ export const useDocumentsStore = defineStore('documents', {
     // 获取动态文档
     getDynamicDocuments() {
       return this.documents.filter(doc => doc.isDynamic)
+    },
+
+    // 为现有文档生成摘要
+    async generateSummariesForExistingDocs() {
+      console.log('🔄 开始为现有文档生成摘要...')
+      let updatedCount = 0
+
+      for (const doc of this.documents) {
+        // 跳过已有摘要的文档
+        if (doc.summary && doc.summary.trim()) {
+          continue
+        }
+
+        // 跳过没有内容的文档
+        if (!doc.content || !doc.content.trim()) {
+          continue
+        }
+
+        try {
+          // 生成摘要并保存
+          const summary = markdownProcessor.generateSummary(doc.content, 150)
+          await storage.saveDocument(doc.id, { ...doc, summary })
+          updatedCount++
+        } catch (error) {
+          console.error(`为文档 ${doc.title} 生成摘要失败:`, error)
+        }
+      }
+
+      // 重新加载文档列表
+      if (updatedCount > 0) {
+        await this.loadDocuments()
+        console.log(`✅ 已为 ${updatedCount} 个文档生成摘要`)
+      } else {
+        console.log('📝 所有文档都已有摘要或无内容')
+      }
+
+      return updatedCount
     }
   }
 })

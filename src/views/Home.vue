@@ -69,7 +69,7 @@
         >
           <div class="recent-title">{{ doc.title }}</div>
           <div class="recent-date">{{ formatDate(doc.updatedAt) }}</div>
-          <div class="recent-summary">{{ doc.summary || '暂无内容' }}</div>
+          <div class="recent-summary">{{ getDocumentSummary(doc) }}</div>
           <div class="recent-tags" v-if="doc.tags && doc.tags.length > 0">
             <el-tag 
               v-for="tag in doc.tags.slice(0, 3)" 
@@ -128,6 +128,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
+import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Upload } from '@element-plus/icons-vue'
 
@@ -137,8 +138,11 @@ const fileInput = ref(null)
 
 // 计算属性
 const stats = computed(() => documentsStore.stats)
-const recentDocs = computed(() => 
-  documentsStore.documents.slice(0, 6)
+const recentDocs = computed(() =>
+  documentsStore.documents
+    .filter(doc => doc.content && doc.content.trim()) // 过滤掉空文档
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)) // 按更新时间排序
+    .slice(0, 6)
 )
 
 // 方法
@@ -191,10 +195,32 @@ const formatDate = (dateString) => {
   })
 }
 
+const getDocumentSummary = (doc) => {
+  // 如果已有摘要，直接返回
+  if (doc.summary && doc.summary.trim()) {
+    return doc.summary
+  }
+
+  // 如果有内容，生成摘要
+  if (doc.content && doc.content.trim()) {
+    return markdownProcessor.generateSummary(doc.content, 120)
+  }
+
+  // 默认提示
+  return '暂无内容'
+}
+
 // 初始化
 onMounted(async () => {
   if (documentsStore.documents.length === 0) {
     await documentsStore.loadDocuments()
+  }
+
+  // 为现有文档生成摘要（如果需要）
+  try {
+    await documentsStore.generateSummariesForExistingDocs()
+  } catch (error) {
+    console.error('生成摘要失败:', error)
   }
 })
 </script>
