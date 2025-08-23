@@ -15,7 +15,7 @@
           :loading="saving"
           :icon="Document"
           size="small"
-          class="save-btn"
+          round
         >
           保存
         </el-button>
@@ -27,7 +27,7 @@
           :type="showPreview ? 'primary' : 'default'"
           :icon="View"
           size="small"
-          class="preview-btn"
+          plain
         >
           {{ showPreview ? '隐藏预览' : '显示预览' }}
         </el-button>
@@ -36,7 +36,7 @@
           @click="$router.push(`/view/${documentId}`)"
           :icon="Reading"
           size="small"
-          class="view-btn"
+          plain
         >
           查看
         </el-button>
@@ -70,7 +70,8 @@
         size="small"
         @click="showInput"
         :icon="Plus"
-        class="add-tag-btn"
+        text
+        bg
       >
         添加标签
       </el-button>
@@ -491,29 +492,7 @@ watch(() => route.params.id, async (newId) => {
   }
 }
 
-/* 按钮样式 */
-.save-btn {
-  font-weight: 600;
-}
-
-.preview-btn {
-  min-width: 100px;
-}
-
-.view-btn {
-  min-width: 60px;
-}
-
-.add-tag-btn {
-  border-style: dashed;
-  opacity: 0.8;
-}
-
-.add-tag-btn:hover {
-  opacity: 1;
-  border-style: solid;
-}
-
+/* 工具栏布局 */
 .toolbar-right {
   display: flex;
   gap: 8px;

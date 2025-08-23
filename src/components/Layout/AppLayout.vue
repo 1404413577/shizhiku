@@ -8,8 +8,7 @@
           type="primary"
           @click="createNewDocument"
           :icon="Plus"
-          size="small"
-          class="create-document-btn"
+          round
         >
           新建文档
         </el-button>
@@ -56,7 +55,7 @@
               @click="reloadPresetDocs"
               title="重新加载预设文档"
               :icon="Refresh"
-              class="reload-btn"
+              circle
             />
           </div>
           <div
@@ -79,7 +78,7 @@
                   @click.stop="editDocument(doc)"
                   :icon="Edit"
                   title="编辑文档"
-                  class="action-btn"
+                  circle
                 />
               </div>
             </div>
@@ -120,7 +119,7 @@
                   @click.stop="editDocument(doc)"
                   :icon="Edit"
                   title="编辑文档"
-                  class="action-btn"
+                  circle
                 />
                 <el-button
                   size="small"
@@ -129,7 +128,7 @@
                   @click.stop="deleteDocument(doc)"
                   :icon="Delete"
                   title="删除文档"
-                  class="action-btn danger-btn"
+                  circle
                 />
               </div>
             </div>
@@ -154,33 +153,7 @@
       </div>
 
       <!-- 底部操作 -->
-      <div class="sidebar-footer">
-        <div class="footer-actions">
-          <el-button
-            size="small"
-            @click="refreshPresetDocs"
-            :loading="refreshing"
-            :icon="Refresh"
-            class="footer-btn"
-          >
-            刷新文档
-          </el-button>
-          <el-button
-            size="small"
-            @click="exportData"
-            class="footer-btn"
-          >
-            导出数据
-          </el-button>
-          <el-button
-            size="small"
-            @click="importData"
-            class="footer-btn"
-          >
-            导入数据
-          </el-button>
-        </div>
-      </div>
+      
     </el-aside>
 
     <!-- 主内容区 -->
@@ -204,7 +177,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Edit, Delete, Document, Refresh } from '@element-plus/icons-vue'
+import { Plus, Search, Edit, Delete, Document, Refresh, Download, Upload } from '@element-plus/icons-vue'
 import { saveAs } from 'file-saver'
 
 const router = useRouter()
@@ -494,39 +467,10 @@ onMounted(async () => {
 .footer-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
-/* 按钮样式 */
-.create-document-btn {
-  width: 100%;
-  font-weight: 600;
-}
-
-.reload-btn {
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-
-.reload-btn:hover {
-  opacity: 1;
-}
-
-.action-btn {
-  opacity: 0.6;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-
-.danger-btn:hover {
-  color: var(--color-danger) !important;
-}
-
-.footer-btn {
+.footer-actions .el-button {
   width: 100%;
   justify-content: flex-start;
 }
