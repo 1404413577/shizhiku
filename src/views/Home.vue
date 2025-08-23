@@ -1,0 +1,385 @@
+<template>
+  <div class="home-page">
+    <div class="welcome-section">
+      <h1>欢迎使用知识库</h1>
+      <p>一个基于 Vue.js 的纯前端知识管理系统</p>
+      
+      <div class="stats-cards">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.total }}</div>
+            <div class="stat-label">文档总数</div>
+          </div>
+        </el-card>
+        
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-number">{{ stats.tags }}</div>
+            <div class="stat-label">标签数量</div>
+          </div>
+        </el-card>
+        
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-number">{{ recentDocs.length }}</div>
+            <div class="stat-label">最近文档</div>
+          </div>
+        </el-card>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <h2>快速操作</h2>
+      <div class="action-buttons">
+        <el-button 
+          type="primary" 
+          size="large"
+          @click="createNewDocument"
+          :icon="Plus"
+        >
+          新建文档
+        </el-button>
+        
+        <el-button 
+          size="large"
+          @click="$router.push('/search')"
+          :icon="Search"
+        >
+          搜索文档
+        </el-button>
+        
+        <el-button 
+          size="large"
+          @click="importData"
+          :icon="Upload"
+        >
+          导入数据
+        </el-button>
+      </div>
+    </div>
+
+    <div class="recent-documents" v-if="recentDocs.length > 0">
+      <h2>最近编辑</h2>
+      <div class="recent-list">
+        <el-card 
+          v-for="doc in recentDocs" 
+          :key="doc.id"
+          class="recent-item"
+          @click="viewDocument(doc)"
+        >
+          <div class="recent-title">{{ doc.title }}</div>
+          <div class="recent-date">{{ formatDate(doc.updatedAt) }}</div>
+          <div class="recent-summary">{{ doc.summary || '暂无内容' }}</div>
+          <div class="recent-tags" v-if="doc.tags && doc.tags.length > 0">
+            <el-tag 
+              v-for="tag in doc.tags.slice(0, 3)" 
+              :key="tag"
+              size="small"
+              type="info"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
+        </el-card>
+      </div>
+    </div>
+
+    <div class="getting-started" v-if="stats.total === 0">
+      <h2>开始使用</h2>
+      <div class="guide-steps">
+        <el-card class="guide-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3>创建第一个文档</h3>
+            <p>点击"新建文档"按钮，开始编写您的第一篇知识文档</p>
+          </div>
+        </el-card>
+        
+        <el-card class="guide-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3>使用 Markdown 语法</h3>
+            <p>支持完整的 Markdown 语法，包括代码高亮、表格、链接等</p>
+          </div>
+        </el-card>
+        
+        <el-card class="guide-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3>组织和搜索</h3>
+            <p>使用标签组织文档，通过搜索功能快速找到需要的内容</p>
+          </div>
+        </el-card>
+      </div>
+    </div>
+
+    <!-- 导入文件对话框 -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".json"
+      style="display: none"
+      @change="handleFileImport"
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useDocumentsStore } from '@/stores/documents.js'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Search, Upload } from '@element-plus/icons-vue'
+
+const router = useRouter()
+const documentsStore = useDocumentsStore()
+const fileInput = ref(null)
+
+// 计算属性
+const stats = computed(() => documentsStore.stats)
+const recentDocs = computed(() => 
+  documentsStore.documents.slice(0, 6)
+)
+
+// 方法
+const createNewDocument = async () => {
+  try {
+    const { value: title } = await ElMessageBox.prompt('请输入文档标题', '新建文档', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /.+/,
+      inputErrorMessage: '标题不能为空'
+    })
+    
+    const doc = await documentsStore.createDocument(title)
+    router.push(`/editor/${doc.id}`)
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('创建文档失败')
+    }
+  }
+}
+
+const viewDocument = (doc) => {
+  router.push(`/view/${doc.id}`)
+}
+
+const importData = () => {
+  fileInput.value.click()
+}
+
+const handleFileImport = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    await documentsStore.importData(text)
+    ElMessage.success('数据导入成功')
+  } catch (error) {
+    ElMessage.error('导入失败：' + error.message)
+  }
+  
+  event.target.value = ''
+}
+
+const formatDate = (dateString) => {
+  return new Date(dateString).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+// 初始化
+onMounted(async () => {
+  if (documentsStore.documents.length === 0) {
+    await documentsStore.loadDocuments()
+  }
+})
+</script>
+
+<style scoped>
+.home-page {
+  padding: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcome-section {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.welcome-section h1 {
+  font-size: 2.5em;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.welcome-section p {
+  font-size: 1.2em;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.stats-cards {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.stat-card {
+  min-width: 150px;
+  cursor: default;
+}
+
+.stat-content {
+  text-align: center;
+}
+
+.stat-number {
+  font-size: 2em;
+  font-weight: bold;
+  color: #409eff;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.quick-actions {
+  margin-bottom: 40px;
+}
+
+.quick-actions h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.recent-documents {
+  margin-bottom: 40px;
+}
+
+.recent-documents h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.recent-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.recent-item {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recent-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.recent-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.recent-date {
+  font-size: 0.9em;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.recent-summary {
+  font-size: 0.9em;
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 10px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recent-tags {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.getting-started h2 {
+  margin-bottom: 20px;
+  color: #333;
+  text-align: center;
+}
+
+.guide-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px;
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  background: #409eff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.step-content h3 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.step-content p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding: 20px;
+  }
+  
+  .stats-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .recent-list {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
