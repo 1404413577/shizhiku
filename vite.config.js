@@ -33,6 +33,12 @@ export default defineConfig({
       }
     }
   ],
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 200,
+    }
+  },
   resolve: {
     alias: {
       '@': '/src'

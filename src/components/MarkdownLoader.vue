@@ -23,6 +23,9 @@
 import { ref, onMounted, watch } from 'vue'
 import { markdownProcessor } from '@/utils/markdown.js'
 
+// HMR 接受注册标记，避免重复注册
+let hotAccepted = false
+
 // Props
 const props = defineProps({
   // 是否自动加载
@@ -56,31 +59,52 @@ const loadMarkdownFiles = async () => {
     console.log('🔄 开始动态加载 Markdown 文件...')
     
     // 使用 Vite 的 import.meta.glob 动态导入所有 .md 文件
-    const modules = import.meta.glob('/docs/**/*.md', { 
+    // 使用相对路径，避免不同环境下绝对路径解析差异
+    // 首选基于项目根目录的绝对路径（Vite 推荐）
+    let modules = import.meta.glob('/docs/**/*.md', {
       as: 'raw',
-      eager: false 
+      eager: true
     })
-    
-    console.log('📁 找到的文件:', Object.keys(modules))
-    
+
+    // 兜底：尝试不带斜杠的相对项目根路径
+    if (Object.keys(modules).length === 0) {
+      modules = import.meta.glob('docs/**/*.md', {
+        as: 'raw',
+        eager: true
+      })
+    }
+
+    const filePaths = Object.keys(modules)
+    console.log('📁 找到的文件:', filePaths)
+
     const loadedDocs = []
-    
-    // 并行加载所有文件
-    const loadPromises = Object.entries(modules).map(async ([path, importFn]) => {
+
+    // 直接遍历已加载的内容（eager）
+    for (const [path, content] of Object.entries(modules)) {
       try {
-        const content = await importFn()
         const doc = await processMarkdownFile(path, content)
-        return doc
+        loadedDocs.push(doc)
       } catch (err) {
-        console.error(`❌ 加载文件失败: ${path}`, err)
-        return null
+        console.error(`❌ 处理文件失败: ${path}`, err)
       }
-    })
-    
-    const results = await Promise.all(loadPromises)
-    loadedDocs.push(...results.filter(Boolean))
-    
+    }
+
     documents.value = loadedDocs
+
+    // 注册对 docs 下 Markdown 的 HMR 接受（确保更新时触发回调）
+    if (import.meta.env.DEV && import.meta.hot) {
+      let acceptModules = import.meta.glob('/docs/**/*.md', { as: 'raw' })
+      if (Object.keys(acceptModules).length === 0) {
+        acceptModules = import.meta.glob('docs/**/*.md', { as: 'raw' })
+      }
+      const acceptPaths = Object.keys(acceptModules)
+      if (acceptPaths.length) {
+        import.meta.hot.accept(acceptPaths, () => {
+          console.log('♻️ [HMR] docs/*.md 发生变化，刷新文档')
+          loadMarkdownFiles()
+        })
+      }
+    }
     console.log(`✅ 成功加载 ${loadedDocs.length} 个文档`)
     
   } catch (err) {
@@ -96,22 +120,25 @@ const processMarkdownFile = async (filePath, content) => {
   try {
     // 从文件路径提取文件名作为标题
     const fileName = filePath.split('/').pop().replace('.md', '')
-    
+
     // 尝试从内容中提取标题（第一个 # 标题）
     const titleMatch = content.match(/^#\s+(.+)$/m)
     const title = titleMatch ? titleMatch[1].trim() : fileName
-    
+
     // 提取标签（从文件内容或文件名）
     const tags = extractTags(content, filePath)
-    
+
     // 生成摘要
     const summary = markdownProcessor.generateSummary(content)
-    
+
     // 获取文件统计信息
     const stats = getFileStats(content)
-    
+
+    // 增加一个稳定的 id（基于相对路径），确保热更新时对应同一文档
+    const stableId = `dynamic-${filePath.replace(/[^a-zA-Z0-9_-]/g, '_')}`
+
     return {
-      id: `dynamic-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      id: stableId,
       title,
       content,
       summary,
@@ -192,17 +219,41 @@ onMounted(() => {
 
 // 在开发环境中启用热重载
 if (import.meta.env.DEV && props.hotReload && import.meta.hot) {
-  // 监听文件变化
-  import.meta.hot.on('vite:beforeUpdate', () => {
-    console.log('🔥 检测到文件变化，准备重新加载...')
+  // 监听文件变化（只关心 docs 目录下的 .md）
+  import.meta.hot.on('vite:beforeUpdate', (payload) => {
+    if (Array.isArray(payload?.updates)) {
+      const touched = payload.updates.some(u => /docs\/.*\.md$/.test(u.path))
+      if (touched) {
+        console.log('🔥 [HMR] docs 目录中文件发生变化，准备更新...', payload.updates.map(u => u.path))
+      }
+    }
   })
-  
-  import.meta.hot.on('vite:afterUpdate', () => {
-    console.log('🔥 文件更新完成，重新加载文档...')
-    setTimeout(() => {
-      loadMarkdownFiles()
-    }, 100)
+
+  import.meta.hot.on('vite:afterUpdate', (payload) => {
+    if (Array.isArray(payload?.updates)) {
+      const touched = payload.updates.some(u => /docs\/.*\.md$/.test(u.path))
+      if (touched) {
+        console.log('🔥 [HMR] docs 文件更新完成，重新加载文档...')
+        // 稍作延时，等待模块替换完成
+        setTimeout(() => {
+          loadMarkdownFiles()
+        }, 50)
+      }
+    }
   })
+
+  // 兜底：当任何模块热更新时也尝试刷新一次（限频）
+  if (!hotAccepted) {
+    let debounceTimer = null
+    import.meta.hot.on('vite:afterUpdate', () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        console.log('🔁 [HMR] 兜底刷新文档')
+        loadMarkdownFiles()
+      }, 500)
+    })
+    hotAccepted = true
+  }
 }
 
 // 暴露方法给父组件
