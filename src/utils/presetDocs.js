@@ -1,4 +1,3 @@
-import { createDevDocsLoader } from '../../vite-plugins/docs-loader.js'
 
 /**
  * 预设文档加载器
@@ -27,23 +26,8 @@ export class PresetDocsLoader {
         }
       } else {
         // 开发环境：直接从文件系统加载
-        console.log('🔧 开发环境：直接从 docs 文件夹加载文档')
-        try {
-          // 动态导入以确保获取最新内容
-          const { createDevDocsLoader } = await import('../../vite-plugins/docs-loader.js')
-          docs = createDevDocsLoader(forceReload)
-          console.log(`📚 从文件系统加载了 ${docs.length} 个文档`)
-        } catch (error) {
-          console.warn('❌ 文件系统加载失败，使用虚拟模块:', error)
-          try {
-            const { default: virtualDocs } = await import('virtual:preset-docs')
-            docs = virtualDocs
-            console.log(`📚 从虚拟模块加载了 ${docs.length} 个文档`)
-          } catch (virtualError) {
-            console.warn('❌ 虚拟模块加载失败，使用备用方案:', virtualError)
-            docs = this.getDevPresetDocs()
-          }
-        }
+        console.log('🔧 开发环境：跳过旧的预设加载机制，返回空列表，由新 .md 组件方案接管')
+        docs = []
       }
 
       // 清理数据确保可序列化

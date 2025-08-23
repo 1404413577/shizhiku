@@ -13,7 +13,7 @@
           新建文档
         </el-button>
       </div>
-      
+
       <!-- 搜索框 -->
       <div class="search-box">
         <el-input
@@ -153,12 +153,47 @@
       </div>
 
       <!-- 底部操作 -->
-      
+
+
+
     </el-aside>
 
     <!-- 主内容区 -->
     <el-main class="main-content">
-      <router-view />
+      <!-- 顶部导航栏 -->
+      <div class="top-nav">
+        <el-menu
+          :default-active="activeNav"
+          mode="horizontal"
+          @select="handleNavSelect"
+          class="nav-menu"
+        >
+          <el-menu-item index="/">
+            <el-icon><House /></el-icon>
+            <span>首页</span>
+          </el-menu-item>
+
+          <el-menu-item index="/md-docs">
+            <el-icon><Document /></el-icon>
+            <span>Markdown 文档</span>
+          </el-menu-item>
+
+          <el-menu-item index="/search">
+            <el-icon><Search /></el-icon>
+            <span>搜索</span>
+          </el-menu-item>
+
+          <el-menu-item v-if="isDev" index="/dynamic-docs-test">
+            <el-icon><Tools /></el-icon>
+            <span>动态文档测试</span>
+          </el-menu-item>
+        </el-menu>
+      </div>
+
+      <!-- 页面内容 -->
+      <div class="page-content">
+        <router-view />
+      </div>
     </el-main>
   </el-container>
 
@@ -177,8 +212,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Edit, Delete, Document, Refresh, Download, Upload } from '@element-plus/icons-vue'
-import { saveAs } from 'file-saver'
+import { Plus, Edit, Delete, Document, Search, House, Tools } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -188,7 +222,19 @@ const fileInput = ref(null)
 // 响应式数据
 const searchQuery = ref('')
 const selectedTags = ref([])
-const refreshing = ref(false)
+
+// 开发环境标识
+const isDev = computed(() => import.meta.env.DEV)
+
+// 当前激活的导航项
+const activeNav = computed(() => {
+  const path = route.path
+  if (path === '/') return '/'
+  if (path.startsWith('/md-docs')) return '/md-docs'
+  if (path.startsWith('/search')) return '/search'
+  if (path.startsWith('/dynamic-docs-test')) return '/dynamic-docs-test'
+  return '/'
+})
 
 // 计算属性
 const filteredDocuments = computed(() => documentsStore.filteredDocuments)
@@ -230,19 +276,14 @@ const handleSearch = (query) => {
   documentsStore.searchDocuments(query)
 }
 
-// 刷新预设文档
-const refreshPresetDocs = async () => {
-  refreshing.value = true
-  try {
-    await documentsStore.refreshPresetDocs()
-    ElMessage.success('文档刷新成功')
-  } catch (error) {
-    console.error('刷新文档失败:', error)
-    ElMessage.error('文档刷新失败')
-  } finally {
-    refreshing.value = false
+// 处理顶部导航选择
+const handleNavSelect = (index) => {
+  if (route.path !== index) {
+    router.push(index)
   }
 }
+
+
 
 const createNewDocument = async () => {
   try {
@@ -252,7 +293,7 @@ const createNewDocument = async () => {
       inputPattern: /.+/,
       inputErrorMessage: '标题不能为空'
     })
-    
+
     const doc = await documentsStore.createDocument(title)
     router.push(`/editor/${doc.id}`)
   } catch (error) {
@@ -314,36 +355,7 @@ const reloadPresetDocs = async () => {
   }
 }
 
-const exportData = async () => {
-  try {
-    const data = await documentsStore.exportData()
-    const blob = new Blob([data], { type: 'application/json' })
-    saveAs(blob, `知识库导出_${new Date().toISOString().split('T')[0]}.json`)
-    ElMessage.success('数据导出成功')
-  } catch (error) {
-    ElMessage.error('导出失败')
-  }
-}
 
-const importData = () => {
-  fileInput.value.click()
-}
-
-const handleFileImport = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  try {
-    const text = await file.text()
-    await documentsStore.importData(text)
-    ElMessage.success('数据导入成功')
-  } catch (error) {
-    ElMessage.error('导入失败：' + error.message)
-  }
-  
-  // 清空文件输入
-  event.target.value = ''
-}
 
 const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('zh-CN')
@@ -478,6 +490,42 @@ onMounted(async () => {
 .main-content {
   padding: 0;
   background: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-nav {
+  background: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border-primary);
+  padding: 0 20px;
+}
+
+.nav-menu {
+  border-bottom: none;
+}
+
+.nav-menu .el-menu-item {
+  height: 50px;
+  line-height: 50px;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-menu .el-menu-item:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.nav-menu .el-menu-item.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.nav-menu .el-menu-item .el-icon {
+  margin-right: 6px;
+}
+
+.page-content {
+  flex: 1;
+  overflow: auto;
 }
 
 /* 文档分组样式 */

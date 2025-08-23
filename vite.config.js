@@ -1,37 +1,26 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Markdown from 'unplugin-vue-markdown/vite'
 import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
-import { docsLoader, createDevDocsLoader } from './vite-plugins/docs-loader.js'
+// import { docsLoader, createDevDocsLoader } from './vite-plugins/docs-loader.js'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue({ include: [/\.vue$/, /\.md$/] }),
+    Markdown({
+      // 这里可以按需配置 markdown-it、代码高亮等
+    }),
     AutoImport({
       resolvers: [ElementPlusResolver()],
       imports: ['vue', 'vue-router', 'pinia', '@vueuse/core']
     }),
     Components({
       resolvers: [ElementPlusResolver()],
-    }),
-    docsLoader(), // 添加文档加载插件
-    // 开发环境虚拟模块插件
-    {
-      name: 'virtual-preset-docs',
-      resolveId(id) {
-        if (id === 'virtual:preset-docs') {
-          return id
-        }
-      },
-      load(id) {
-        if (id === 'virtual:preset-docs') {
-          const docs = createDevDocsLoader()
-          return `export default ${JSON.stringify(docs, null, 2)}`
-        }
-      }
-    }
+    })
+    // docsLoader(), // 暂时禁用旧文档插件，避免干扰
   ],
   server: {
     watch: {

@@ -26,6 +26,12 @@ const routes = [
     meta: { title: '搜索' }
   },
   {
+    path: '/md-docs',
+    name: 'MdDocs',
+    component: () => import('@/views/MdDocs.vue'),
+    meta: { title: 'Markdown 文档' }
+  },
+  {
     path: '/dynamic-docs-test',
     name: 'DynamicDocsTest',
     component: () => import('@/views/DynamicDocsTest.vue'),
