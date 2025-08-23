@@ -10,6 +10,7 @@
     "seo:sitemap": "node scripts/generate-sitemap.js",
     "seo:check": "node scripts/seo-check.js",
     "seo:build": "npm run seo:sitemap && npm run build",
+    "icons:generate": "node scripts/generate-icons.js",
     "analyze": "npx vite-bundle-analyzer"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",
+    "terser": "^5.43.1",
     "unplugin-vue-markdown": "^29.1.0",
     "vite": "^7.1.2"
   }

@@ -50,7 +50,10 @@ export default defineConfig({
         manualChunks: {
           vendor: ['vue', 'vue-router', 'pinia'],
           ui: ['element-plus'],
-          utils: ['markdown-it', 'highlight.js', 'fuse.js', 'localforage']
+          markdown: ['markdown-it'],
+          highlight: ['highlight.js'],
+          search: ['fuse.js'],
+          storage: ['localforage', 'file-saver']
         },
         // 文件命名优化
         chunkFileNames: 'js/[name]-[hash].js',
