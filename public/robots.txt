@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://shizhiku.vercel.app/sitemap.xml
+
+# 禁止访问的路径
+Disallow: /api/
+Disallow: /_nuxt/
+Disallow: /admin/
+
+# 爬取延迟（毫秒）
+Crawl-delay: 1

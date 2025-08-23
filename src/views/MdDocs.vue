@@ -92,7 +92,15 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
+
+// SEO 配置
+usePageSEO({
+  title: 'Markdown 文档 - 知识库管理系统',
+  description: '浏览和管理您的 Markdown 文档，支持实时预览和热重载。查看 docs 文件夹中的所有文档内容。',
+  keywords: 'Markdown文档,文档浏览,实时预览,文档管理'
+})
 
 // 直接把 docs 下的 .md 当成 Vue 组件引入（eager 保证 HMR 立即生效）
 const modules = import.meta.glob('/docs/**/*.md', { eager: true })

@@ -129,11 +129,19 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
+import { usePageSEO } from '@/composables/useSEO.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Upload } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
+
+// SEO 配置
+usePageSEO({
+  title: '首页 - 知识库管理系统',
+  description: '现代化的知识管理平台，轻松创建、编辑和管理您的文档。支持 Markdown 语法、智能搜索和标签分类。',
+  keywords: '知识库首页,文档管理首页,Markdown编辑器,知识管理系统'
+})
 const fileInput = ref(null)
 
 // 计算属性

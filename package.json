@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seo:sitemap": "node scripts/generate-sitemap.js",
+    "seo:check": "node scripts/seo-check.js",
+    "seo:build": "npm run seo:sitemap && npm run build",
+    "analyze": "npx vite-bundle-analyzer"
   },
   "dependencies": {
     "@vueuse/core": "^13.7.0",

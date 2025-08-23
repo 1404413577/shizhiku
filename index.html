@@ -1,10 +1,56 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Vue</title>
+
+    <!-- 基础 SEO 标签 -->
+    <title>知识库管理系统 - 基于 Vue 3 的现代化知识管理解决方案</title>
+    <meta name="description" content="现代化的知识管理平台，支持 Markdown 编辑、全文搜索、标签管理等功能。基于 Vue 3、Element Plus 构建的纯前端应用。" />
+    <meta name="keywords" content="知识库,文档管理,Markdown编辑器,全文搜索,Vue3,前端应用,知识管理系统" />
+    <meta name="author" content="知识库团队" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph 标签 -->
+    <meta property="og:title" content="知识库管理系统" />
+    <meta property="og:description" content="现代化的知识管理平台，支持 Markdown 编辑、全文搜索、标签管理等功能" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://shizhiku.vercel.app/" />
+    <meta property="og:image" content="https://shizhiku.vercel.app/og-image.png" />
+    <meta property="og:site_name" content="知识库管理系统" />
+    <meta property="og:locale" content="zh_CN" />
+
+    <!-- Twitter Card 标签 -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="知识库管理系统" />
+    <meta name="twitter:description" content="现代化的知识管理平台，支持 Markdown 编辑、全文搜索、标签管理等功能" />
+    <meta name="twitter:image" content="https://shizhiku.vercel.app/og-image.png" />
+
+    <!-- 图标和主题 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#409eff" />
+
+    <!-- 预连接和预加载 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- 结构化数据 -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "知识库管理系统",
+      "description": "现代化的知识管理平台，支持 Markdown 编辑、全文搜索、标签管理等功能",
+      "url": "https://shizhiku.vercel.app",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://shizhiku.vercel.app/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="app"></div>

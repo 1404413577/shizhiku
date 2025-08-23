@@ -5,6 +5,7 @@ import 'element-plus/dist/index.css'
 import 'highlight.js/styles/github.css'
 import App from './App.vue'
 import router from './router'
+import { initPerformanceMonitoring } from './utils/performance.js'
 
 // 在开发环境中引入调试工具
 if (import.meta.env.DEV) {
@@ -20,6 +21,11 @@ app.use(router)
 app.use(ElementPlus)
 
 app.mount('#app')
+
+// 初始化性能监控
+if (import.meta.env.PROD) {
+  initPerformanceMonitoring()
+}
 
 // 在开发环境中监听文档变化
 if (import.meta.env.DEV && import.meta.hot) {

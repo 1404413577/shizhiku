@@ -284,6 +284,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
+import { usePageSEO } from '@/composables/useSEO.js'
 import { ElMessage } from 'element-plus'
 import {
   Document, InfoFilled, Edit, Search, Collection, Download, Tools,
@@ -293,6 +294,13 @@ import {
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
+
+// SEO 配置
+usePageSEO({
+  title: '关于我们 - 知识库管理系统',
+  description: '了解知识库管理系统的功能特性、技术栈和开发团队。基于 Vue 3、Element Plus 构建的现代化应用。',
+  keywords: '关于我们,系统介绍,技术栈,Vue3,Element Plus'
+})
 
 // 应用版本
 const appVersion = ref('1.0.0')
