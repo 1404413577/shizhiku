@@ -144,6 +144,7 @@ const displayDocuments = computed(() => {
 
 // 方法
 const handleSearch = (query) => {
+  console.log('🔍 Search页面: 处理搜索输入:', query)
   documentsStore.searchDocuments(query)
 }
 

@@ -9,35 +9,80 @@ export class SearchEngine {
 
   // 初始化搜索引擎
   initialize(documents) {
-    this.documents = documents.map(doc => ({
-      ...doc,
-      searchText: markdownProcessor.extractText(doc.content),
-      summary: markdownProcessor.generateSummary(doc.content)
-    }))
+    try {
+      console.log('🔍 初始化搜索引擎，文档数量:', documents.length)
 
-    const options = {
-      keys: [
-        { name: 'title', weight: 0.4 },
-        { name: 'searchText', weight: 0.3 },
-        { name: 'tags', weight: 0.2 },
-        { name: 'summary', weight: 0.1 }
-      ],
-      threshold: 0.3,
-      includeScore: true,
-      includeMatches: true,
-      minMatchCharLength: 2
+      if (!Array.isArray(documents)) {
+        console.error('❌ 传入的文档不是数组:', documents)
+        this.documents = []
+        this.fuse = null
+        return
+      }
+
+      this.documents = documents.map(doc => {
+        try {
+          const searchText = doc.content ? markdownProcessor.extractText(doc.content) : ''
+          const summary = doc.content ? markdownProcessor.generateSummary(doc.content) : ''
+
+          return {
+            ...doc,
+            searchText,
+            summary
+          }
+        } catch (error) {
+          console.error('处理文档时出错:', doc.title, error)
+          return {
+            ...doc,
+            searchText: doc.content || '',
+            summary: doc.title || ''
+          }
+        }
+      })
+
+      const options = {
+        keys: [
+          { name: 'title', weight: 0.4 },
+          { name: 'searchText', weight: 0.3 },
+          { name: 'tags', weight: 0.2 },
+          { name: 'summary', weight: 0.1 }
+        ],
+        threshold: 0.3,
+        includeScore: true,
+        includeMatches: true,
+        minMatchCharLength: 2
+      }
+
+      this.fuse = new Fuse(this.documents, options)
+      console.log('✅ 搜索引擎初始化成功，索引文档数量:', this.documents.length)
+    } catch (error) {
+      console.error('❌ 搜索引擎初始化失败:', error)
+      this.documents = []
+      this.fuse = null
     }
-
-    this.fuse = new Fuse(this.documents, options)
   }
 
   // 搜索文档
   search(query) {
-    if (!this.fuse || !query.trim()) {
+    console.log('🔍 执行搜索，查询词:', query)
+
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      console.log('⚠️ 查询词为空，返回所有文档')
       return this.documents.map(doc => ({ item: doc, score: 0 }))
     }
 
-    return this.fuse.search(query)
+    if (!this.fuse) {
+      console.error('❌ 搜索引擎未初始化')
+      return []
+    }
+
+    try {
+      const results = this.fuse.search(query.trim())
+      console.log('✅ 搜索完成，结果数量:', results.length)
+      return results
+    } catch (error) {
+      console.error('❌ 搜索执行失败:', error)
+      return []
+    }
   }
 
   // 按标签过滤

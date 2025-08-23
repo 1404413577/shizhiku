@@ -61,8 +61,8 @@ export const useDocumentsStore = defineStore('documents', {
         // 检查是否需要加载预设文档
         await this.loadPresetDocsIfNeeded()
 
-        // 暂时注释掉搜索引擎初始化来调试
-        // searchEngine.initialize([...this.documents])
+        // 初始化搜索引擎
+        searchEngine.initialize([...this.documents])
       } catch (error) {
         console.error('加载文档失败:', error)
         throw error
@@ -131,7 +131,7 @@ export const useDocumentsStore = defineStore('documents', {
       try {
         const document = await storage.createDocument(title, content)
         this.documents = [document, ...this.documents]
-        // searchEngine.initialize([...this.documents])
+        searchEngine.initialize([...this.documents])
         return document
       } catch (error) {
         console.error('创建文档失败:', error)
@@ -157,7 +157,7 @@ export const useDocumentsStore = defineStore('documents', {
         }
 
         // 重新初始化搜索引擎
-        // searchEngine.initialize([...this.documents])
+        searchEngine.initialize([...this.documents])
         this.currentDocument = { ...document }
         return document
       } catch (error) {
@@ -171,7 +171,7 @@ export const useDocumentsStore = defineStore('documents', {
       try {
         await storage.deleteDocument(id)
         this.documents = this.documents.filter(doc => doc.id !== id)
-        // searchEngine.initialize([...this.documents])
+        searchEngine.initialize([...this.documents])
         if (this.currentDocument && this.currentDocument.id === id) {
           this.currentDocument = null
         }
@@ -183,11 +183,22 @@ export const useDocumentsStore = defineStore('documents', {
 
     // 搜索文档
     searchDocuments(query) {
+      console.log('📝 Store: 执行搜索，查询词:', query)
+
       this.searchQuery = query
-      if (query.trim()) {
-        const results = searchEngine.search(query)
+
+      if (!query || !query.trim()) {
+        console.log('📝 Store: 查询词为空，清空搜索结果')
+        this.searchResults = []
+        return
+      }
+
+      try {
+        const results = searchEngine.search(query.trim())
         this.searchResults = results.map(result => result.item)
-      } else {
+        console.log('📝 Store: 搜索完成，结果数量:', this.searchResults.length)
+      } catch (error) {
+        console.error('📝 Store: 搜索失败:', error)
         this.searchResults = []
       }
     },

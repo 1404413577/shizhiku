@@ -9,6 +9,7 @@ import router from './router'
 // 在开发环境中引入调试工具
 if (import.meta.env.DEV) {
   import('./utils/debugStorage.js')
+  import('./utils/searchDebug.js')
 }
 
 const app = createApp(App)

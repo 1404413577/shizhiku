@@ -222,6 +222,7 @@ const userDocuments = computed(() => {
 
 // 方法
 const handleSearch = (query) => {
+  console.log('🔍 AppLayout: 处理搜索输入:', query)
   documentsStore.searchDocuments(query)
 }
 

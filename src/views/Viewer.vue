@@ -95,11 +95,11 @@
           </div>
 
           <!-- 开发环境调试按钮 -->
-          <div v-if="isDev" class="debug-actions">
+          <!-- <div v-if="isDev" class="debug-actions">
             <el-button size="small" @click="runTocDiagnosis">
               🔍 诊断目录
             </el-button>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
@@ -369,13 +369,13 @@ const formatDate = (dateString) => {
 }
 
 // 调试方法
-const runTocDiagnosis = () => {
-  if (window.tocDebug) {
-    window.tocDebug.fullDiagnosis()
-  } else {
-    console.log('调试工具未加载')
-  }
-}
+// const runTocDiagnosis = () => {
+//   if (window.tocDebug) {
+//     window.tocDebug.fullDiagnosis()
+//   } else {
+//     console.log('调试工具未加载')
+//   }
+// }
 
 // 键盘快捷键处理
 const handleKeydown = (event) => {
