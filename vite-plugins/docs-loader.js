@@ -19,9 +19,11 @@ export function docsLoader() {
           if (file.includes('docs') && file.endsWith('.md')) {
             console.log(`📄 检测到文档变化: ${file}`)
             docsCache = null // 清除缓存
-            // 通知客户端重新加载
+            // 发送自定义事件通知客户端
             server.ws.send({
-              type: 'full-reload'
+              type: 'custom',
+              event: 'docs-changed',
+              data: { file }
             })
           }
         })

@@ -316,6 +316,29 @@ export const useDocumentsStore = defineStore('documents', {
         console.error('❌ 刷新预设文档失败:', error)
         throw error
       }
+    },
+
+    // 添加动态文档
+    addDynamicDocuments(dynamicDocs) {
+      console.log(`📚 添加 ${dynamicDocs.length} 个动态文档`)
+
+      // 移除现有的动态文档
+      this.documents = this.documents.filter(doc => !doc.isDynamic)
+
+      // 添加新的动态文档
+      this.documents.push(...dynamicDocs)
+
+      // 重新初始化搜索引擎
+      if (this.searchEngine) {
+        this.searchEngine.initialize(this.documents)
+      }
+
+      console.log(`✅ 动态文档已更新，当前总文档数: ${this.documents.length}`)
+    },
+
+    // 获取动态文档
+    getDynamicDocuments() {
+      return this.documents.filter(doc => doc.isDynamic)
     }
   }
 })

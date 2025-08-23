@@ -24,6 +24,12 @@ const routes = [
     name: 'Search',
     component: () => import('@/views/Search.vue'),
     meta: { title: '搜索' }
+  },
+  {
+    path: '/dynamic-docs-test',
+    name: 'DynamicDocsTest',
+    component: () => import('@/views/DynamicDocsTest.vue'),
+    meta: { title: '动态文档测试' }
   }
 ]
 

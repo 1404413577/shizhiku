@@ -20,3 +20,21 @@ app.use(router)
 app.use(ElementPlus)
 
 app.mount('#app')
+
+// 在开发环境中监听文档变化
+if (import.meta.env.DEV && import.meta.hot) {
+  import.meta.hot.on('docs-changed', async (data) => {
+    console.log('📄 检测到文档变化，重新加载预设文档...', data)
+
+    // 获取文档存储实例并强制刷新
+    const { useDocumentsStore } = await import('./stores/documents.js')
+    const documentsStore = useDocumentsStore()
+
+    try {
+      await documentsStore.refreshPresetDocs()
+      console.log('✅ 预设文档已更新')
+    } catch (error) {
+      console.error('❌ 更新预设文档失败:', error)
+    }
+  })
+}
