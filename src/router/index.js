@@ -30,6 +30,12 @@ const routes = [
     name: 'MdDocs',
     component: () => import('@/views/MdDocs.vue'),
     meta: { title: 'Markdown 文档' }
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: () => import('@/views/About.vue'),
+    meta: { title: '关于我' }
   }
 ]
 

@@ -182,8 +182,8 @@
             <el-icon><Search /></el-icon>
             <span>搜索</span>
           </el-menu-item>
-          <el-menu-item index="/search">
-            <el-icon><Search /></el-icon>
+          <el-menu-item index="/about">
+            <el-icon><InfoFilled /></el-icon>
             <span>关于我</span>
           </el-menu-item>
         </el-menu>
@@ -211,7 +211,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -228,6 +228,7 @@ const activeNav = computed(() => {
   if (path === '/') return '/'
   if (path.startsWith('/md-docs')) return '/md-docs'
   if (path.startsWith('/search')) return '/search'
+  if (path.startsWith('/about')) return '/about'
   return '/'
 })
 
