@@ -353,11 +353,20 @@ const daysSinceFirstDoc = computed(() => {
   const docs = documentsStore.documents
   if (docs.length === 0) return 0
 
-  const firstDoc = docs.reduce((earliest, doc) => {
+  // 过滤掉没有有效 createdAt 的文档
+  const validDocs = docs.filter(doc => {
+    const d = new Date(doc.createdAt)
+    return doc.createdAt && !isNaN(d.getTime())
+  })
+  if (validDocs.length === 0) return 1
+
+  const firstDoc = validDocs.reduce((earliest, doc) => {
     return new Date(doc.createdAt) < new Date(earliest.createdAt) ? doc : earliest
   })
+  const firstDate = new Date(firstDoc.createdAt)
+  if (isNaN(firstDate.getTime())) return 1
 
-  const daysDiff = Math.floor((new Date() - new Date(firstDoc.createdAt)) / (1000 * 60 * 60 * 24))
+  const daysDiff = Math.floor((new Date() - firstDate) / (1000 * 60 * 60 * 24))
   return Math.max(1, daysDiff)
 })
 
