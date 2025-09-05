@@ -425,29 +425,27 @@ const quickStartSteps = ref([
 ])
 
 // 更新日志
+// 自动生成 changelog（仅展示最近 20 条提交）
 const changelog = ref([
-  {
-    version: 'v1.0.0',
-    date: '2025-01-23',
-    type: 'primary',
-    changes: [
-      '完成基础文档管理功能',
-      '实现 Markdown 编辑器',
-      '添加全文搜索功能',
-      '支持标签管理',
-      '实现数据导入导出'
-    ]
-  },
-  {
-    version: 'v0.9.0',
-    date: '2025-01-20',
-    type: 'success',
-    changes: [
-      '优化用户界面设计',
-      '改进响应式布局',
-      '修复已知问题'
-    ]
-  }
+  { version: '6c79273', date: '2025-09-05', type: 'primary', changes: ['fix: 修复使用天数显示 NaN 的问题，增加 createdAt 校验'] },
+  { version: '13c7a68', date: '2025-08-23', type: 'success', changes: ['feat: 自动生成网页图标，完善 SEO 和 PWA 支持'] },
+  { version: '619e04d', date: '2025-08-23', type: 'success', changes: ['feat: 全面实现 SEO 优化方案'] },
+  { version: '739c357', date: '2025-08-23', type: 'success', changes: ['feat: 完善 About.vue 关于页面的完整实现'] },
+  { version: 'bfd2ea1', date: '2025-08-23', type: 'primary', changes: ["fix: 修复首页'最近编辑'区域显示'暂无内容'的问题"] },
+  { version: 'a1e3f89', date: '2025-08-23', type: 'success', changes: ['feat: 全面优化 MdDocs 页面布局和样式设计'] },
+  { version: '2abdcf4', date: '2025-08-23', type: 'info', changes: ['refactor: 移除动态文档测试功能，简化导航'] },
+  { version: '2c65b76', date: '2025-08-23', type: 'success', changes: ['feat: 添加顶部导航栏并集成 Markdown 文档入口'] },
+  { version: '1347fe9', date: '2025-08-23', type: 'primary', changes: ['fix(hmr): 明确接受 docs 下 .md 文件的热更新并开启轮询监听'] },
+  { version: '7df458d', date: '2025-08-23', type: 'success', changes: ['feat: 实现基于 Vue 组件的动态 Markdown 文档加载系统'] },
+  { version: '1dbc235', date: '2025-08-23', type: 'info', changes: ['style: 简化按钮样式，移除底部操作区域'] },
+  { version: '5ef155a', date: '2025-08-23', type: 'info', changes: ['style: 使用 Element Plus 标准属性统一按钮样式'] },
+  { version: 'e9d4900', date: '2025-08-23', type: 'info', changes: ['style: 统一全局按钮样式'] },
+  { version: 'd2772a2', date: '2025-08-23', type: 'primary', changes: ['fix: 修复文档自动加载功能'] },
+  { version: '71998d7', date: '2025-08-23', type: 'info', changes: ['docs: 更新 README 触发 Vercel 重新部署'] },
+  { version: 'd195d2e', date: '2025-08-23', type: 'primary', changes: ['fix(search): 统一按 id 回填搜索结果，避免对象引用不一致导致 UI 过滤异常'] },
+  { version: '3b15dda', date: '2025-08-23', type: 'success', changes: ['feat: 添加 Vercel 部署配置'] },
+  { version: 'da843cf', date: '2025-08-23', type: 'primary', changes: ['fix: 修复搜索功能问题'] },
+  { version: '4d95f1b', date: '2025-08-23', type: 'success', changes: ['feat: 实现文档查看器目录导航功能'] }
 ])
 
 // 初始化
