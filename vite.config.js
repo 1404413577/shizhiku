@@ -27,8 +27,8 @@ export default defineConfig({
       generateSitemap: true,
       generateRobots: true,
       minifyHtml: true
-    })
-    // docsLoader(), // 暂时禁用旧文档插件，避免干扰
+    }),
+    docsLoader(), // 暂时禁用旧文档插件，避免干扰
   ],
   server: {
     watch: {
