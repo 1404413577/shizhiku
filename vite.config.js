@@ -5,7 +5,17 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { seoPlugin } from './vite-plugins/seo-plugin.js'
-// import { docsLoader, createDevDocsLoader } from './vite-plugins/docs-loader.js'
+// docs-loader 在运行时可能依赖文件系统，使用按需导入以避免在 Vite 配置打包时出错
+let docsLoader
+let createDevDocsLoader
+try {
+  const mod = await import('./vite-plugins/docs-loader.js')
+  docsLoader = mod.docsLoader
+  createDevDocsLoader = mod.createDevDocsLoader
+} catch (e) {
+  // 忽略导入错误，开发时会按需处理
+  console.warn('无法按需导入 docs-loader:', e && e.message)
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -21,14 +31,15 @@ export default defineConfig({
     Components({
       resolvers: [ElementPlusResolver()],
     }),
-    // SEO 优化插件
-    seoPlugin({
+  // SEO 优化插件
+  seoPlugin({
       baseUrl: 'https://shizhiku.vercel.app',
       generateSitemap: true,
       generateRobots: true,
       minifyHtml: true
     }),
-    docsLoader(), // 暂时禁用旧文档插件，避免干扰
+  // 按需启用 docsLoader（如果模块可用）
+  ...(docsLoader ? [docsLoader()] : []),
   ],
   server: {
     watch: {
