@@ -254,7 +254,7 @@
           <div class="contact-item">
             <el-icon><Link /></el-icon>
             <span>项目地址：</span>
-            <el-link href="https://github.com/your-repo" target="_blank" type="primary">
+            <el-link href="git@github.com:1404413577/shizhiku.git" target="_blank" type="primary">
               GitHub Repository
             </el-link>
           </div>
