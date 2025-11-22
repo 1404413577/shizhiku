@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + Vue</title>
+    <script type="module" crossorigin src="/assets/index-CIqBSb00.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-BQKAl7VB.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-CbhQC3cz.js">
+    <link rel="modulepreload" crossorigin href="/assets/utils-ckXeN01P.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-B0YL3cZw.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
+</html>
