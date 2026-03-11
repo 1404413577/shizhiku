@@ -1,4 +1,4 @@
-import{c as e}from"./ui-DzqMDhW1.js";function n(e){throw new Error('Could not dynamically require "'+e+'". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.')}var t,r={exports:{}};
+import{c as e}from"./ui-C25nZJ6c.js";function n(e){throw new Error('Could not dynamically require "'+e+'". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.')}var t,r={exports:{}};
 /*!
     localForage -- Offline Storage, Improved
     Version 1.10.0
