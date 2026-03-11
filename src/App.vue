@@ -125,6 +125,18 @@ body {
 }
 
 /* Code block wrapper and copy button styles */
+/* 任务列表样式适配 */
+.markdown-body :deep(.task-list-item) {
+  list-style-type: none;
+}
+
+.markdown-body :deep(.task-list-item-checkbox) {
+  margin: 0 8px 0 -24px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* 响应式设计 */
 .code-block-wrapper {
   position: relative;
   margin: 16px 0;
@@ -177,6 +189,35 @@ body {
 
 .code-block-wrapper pre code {
   background: none !important;
+}
+
+/* MathJax 公式样式适配 */
+.mjx-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.mjx-container svg {
+  fill: var(--el-text-color-primary) !important;
+  color: var(--el-text-color-primary) !important;
+}
+
+.mjx-container[display="true"] {
+  margin: 16px 0;
+  text-align: center;
+}
+
+/* 阅读进度条全局样式 */
+.reading-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background-color: var(--el-color-primary);
+  z-index: 9999;
+  transition: width 0.1s ease-out;
+  pointer-events: none; /* 防止遮挡下方事件 */
 }
 
 /* Element Plus 按钮主题适配 */

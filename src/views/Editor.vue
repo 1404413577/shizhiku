@@ -1,5 +1,8 @@
 <template>
-  <div class="editor-page">
+  <div class="editor-page" :class="{ 'preview-only': !isEditing }">
+    <!-- 预览区阅读进度条 -->
+    <div v-show="!isEditing" class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
+    
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
@@ -8,6 +11,7 @@
           placeholder="文档标题"
           class="title-input"
           @blur="saveDocument"
+          ref="titleInputRef"
         />
         <el-button
           type="primary"
@@ -23,13 +27,13 @@
       
       <div class="toolbar-right">
         <el-button
-          @click="togglePreview"
-          :type="showPreview ? 'primary' : 'default'"
-          :icon="View"
+          @click="toggleEditMode"
+          :type="isEditing ? 'primary' : 'default'"
+          :icon="Edit"
           size="small"
           plain
         >
-          {{ showPreview ? '隐藏预览' : '显示预览' }}
+          {{ isEditing ? '编辑模式' : '预览模式' }}
         </el-button>
 
         <el-button
@@ -78,9 +82,9 @@
     </div>
 
     <!-- 编辑器区域 -->
-    <div class="editor-container" :class="{ 'split-view': showPreview }">
-      <!-- Markdown 编辑器 -->
-      <div class="editor-panel">
+    <div class="editor-container">
+      <!-- 左侧编辑器 -->
+      <div v-show="isEditing" class="editor-panel">
         <textarea
           ref="editorRef"
           v-model="documentContent"
@@ -91,15 +95,15 @@
         />
       </div>
 
-      <!-- 预览面板 -->
-      <div v-if="showPreview" class="preview-panel">
-        <div 
-          ref="previewRef"
-          class="markdown-preview"
-          v-html="renderedContent"
-          @click="handlePreviewClick"
-          @scroll="syncPreviewScroll"
-        />
+      <!-- 右侧预览区 -->
+      <div v-show="!isEditing" class="preview-panel">
+        <el-scrollbar class="content-scrollbar" @scroll="handlePreviewScroll">
+          <div 
+            class="markdown-preview markdown-body" 
+            v-html="renderedContent"
+            @click="handlePreviewClick"
+          ></div>
+        </el-scrollbar>
       </div>
     </div>
 
@@ -118,7 +122,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage } from 'element-plus'
-import { Document, View, Reading, Plus } from '@element-plus/icons-vue'
+import { Document, View, Reading, Plus, Edit } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,9 +133,11 @@ const documentId = ref(route.params.id)
 const documentTitle = ref('')
 const documentContent = ref('')
 const documentTags = ref([])
-const showPreview = ref(true)
+const isEditing = ref(true) // 控制编辑/预览模式
 const saving = ref(false)
 const lastSaved = ref(null)
+const titleInputRef = ref(null)
+const readingProgress = ref(0) // 预览区阅读进度
 
 // 标签输入
 const inputVisible = ref(false)
@@ -140,7 +146,7 @@ const inputRef = ref(null)
 
 // 编辑器引用
 const editorRef = ref(null)
-const previewRef = ref(null)
+const previewRef = ref(null) // This ref is no longer directly used for scroll, but kept for potential future use or if other parts rely on it.
 
 // 自动保存定时器
 let autoSaveTimer = null
@@ -222,8 +228,14 @@ const handleContentChange = () => {
   }, 100)
 }
 
-const togglePreview = () => {
-  showPreview.value = !showPreview.value
+const toggleEditMode = () => {
+  isEditing.value = !isEditing.value
+  if (!isEditing.value) {
+    // 进入预览模式时，确保 Mermaid 渲染
+    nextTick(() => {
+      markdownProcessor.renderMermaid()
+    })
+  }
 }
 
 // 标签管理
@@ -248,32 +260,52 @@ const handleInputConfirm = () => {
   inputValue.value = ''
 }
 
-// 滚动同步
+// 滚动同步 (仅在编辑模式下，且预览面板可见时)
 const syncScroll = () => {
-  if (!showPreview.value || !previewRef.value || !editorRef.value) return
-  
-  const editor = editorRef.value
-  const preview = previewRef.value
-  const scrollRatio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight)
-  preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight)
-}
-
-const syncPreviewScroll = () => {
-  if (!showPreview.value || !previewRef.value || !editorRef.value) return
-  
-  const editor = editorRef.value
-  const preview = previewRef.value
-  const scrollRatio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight)
-  editor.scrollTop = scrollRatio * (editor.scrollHeight - editor.clientHeight)
+  // This function is for editor scroll, no longer directly syncing with previewRef
+  // as preview now uses el-scrollbar and has its own scroll handler.
+  // If a split view is re-introduced, this would need adjustment.
 }
 
 const formatTime = (date) => {
   return date.toLocaleTimeString('zh-CN')
 }
 
+const handlePreviewScroll = ({ scrollTop }) => {
+  const scrollWrap = document.querySelector('.preview-panel .el-scrollbar__wrap')
+  if (!scrollWrap) return
+  
+  const scrollHeight = scrollWrap.scrollHeight
+  const clientHeight = scrollWrap.clientHeight
+  
+  if (scrollHeight <= clientHeight) {
+    readingProgress.value = 0
+    return
+  }
+  
+  const percent = (scrollTop / (scrollHeight - clientHeight)) * 100
+  readingProgress.value = Math.min(100, Math.max(0, percent))
+}
+
 // 处理预览区点击（事件代理用于代码复制等）
 const handlePreviewClick = (event) => {
+  // 处理代码复制
   markdownProcessor.handleCopyClick(event)
+
+  // 处理待办事项复选框点击
+  const target = event.target
+  if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {
+    const newMarkdown = markdownProcessor.syncCheckboxUpdate(documentContent.value, target)
+    if (newMarkdown !== null) {
+      documentContent.value = newMarkdown
+      // 触发自动保存
+      handleContentChange()
+    } else {
+      // 还原 checkbox 状态，因为同步失败
+      target.checked = !target.checked
+      ElMessage.warning('未能同步待办事项状态')
+    }
+  }
 }
 
 // 键盘快捷键
@@ -323,6 +355,16 @@ watch(() => route.params.id, async (newId) => {
   flex-direction: column;
 }
 
+.reading-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background-color: var(--el-color-primary);
+  z-index: 9999;
+  transition: width 0.1s ease-out;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -370,13 +412,14 @@ watch(() => route.params.id, async (newId) => {
   overflow: hidden;
 }
 
-.editor-container.split-view .editor-panel {
+/* Removed split-view class as it's now controlled by v-show */
+/* .editor-container.split-view .editor-panel {
   width: 50%;
   border-right: 1px solid #e0e0e0;
-}
+} */
 
 .editor-panel {
-  width: 100%;
+  flex: 1; /* Occupy full width when visible */
   display: flex;
   flex-direction: column;
 }
@@ -394,16 +437,18 @@ watch(() => route.params.id, async (newId) => {
 }
 
 .preview-panel {
-  width: 50%;
-  overflow-y: auto;
-  background: white;
+  flex: 1; /* Occupy full width when visible */
+  background: var(--el-bg-color);
+  overflow: hidden; /* el-scrollbar handles its own overflow */
 }
 
 .markdown-preview {
-  padding: 20px;
+  padding: 40px;
+  max-width: 800px;
+  margin: 0 auto;
   line-height: 1.6;
-  height: 100%;
-  overflow-y: auto;
+  /* height: 100%; el-scrollbar handles height */
+  /* overflow-y: auto; el-scrollbar handles overflow */
 }
 
 .status-bar {

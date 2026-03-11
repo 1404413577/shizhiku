@@ -27,7 +27,7 @@ export const useDocumentsStore = defineStore('documents', {
       return Array.from(tags).sort()
     },
 
-    // 过滤后的文档
+    // 过滤后的文档 (扁平搜索结果)
     filteredDocuments: (state) => {
       if (state.searchQuery.trim()) {
         return state.searchResults
@@ -40,6 +40,40 @@ export const useDocumentsStore = defineStore('documents', {
       }
       
       return state.documents
+    },
+
+    // 基于 parentId 构建的文档树结构
+    documentTree: (state) => {
+      // 深度拷贝所有文档以避免修改 state 引用
+      const items = state.documents.map(doc => ({ ...doc, children: [] }))
+      const tree = []
+      const lookup = {}
+
+      items.forEach(item => {
+        lookup[item.id] = item
+      })
+
+      items.forEach(item => {
+        if (item.parentId && lookup[item.parentId]) {
+          lookup[item.parentId].children.push(item)
+        } else {
+          // 根节点
+          tree.push(item)
+        }
+      })
+
+      // 对结果进行排序，文件夹优先，然后按时间倒序或按 title 排序
+      const sortTree = (nodes) => {
+        nodes.sort((a, b) => {
+          if (a.isFolder && !b.isFolder) return -1
+          if (!a.isFolder && b.isFolder) return 1
+          return new Date(b.updatedAt) - new Date(a.updatedAt)
+        })
+        nodes.forEach(node => sortTree(node.children))
+      }
+      sortTree(tree)
+
+      return tree
     },
 
     // 文档统计
@@ -152,15 +186,58 @@ export const useDocumentsStore = defineStore('documents', {
       }
     },
 
-    // 创建文档
-    async createDocument(title, content = '') {
+    // 创建文档 (新增 parentId 参数)
+    async createDocument(title, content = '', parentId = null) {
       try {
         const document = await storage.createDocument(title, content)
-        this.documents = [document, ...this.documents]
-        searchEngine.initialize([...this.documents])
+        if (parentId) {
+          document.parentId = String(parentId)
+          // 立即触发一次保存以将 parentId 写入存储
+          await this.saveDocument(document.id, document)
+        } else {
+          this.documents = [document, ...this.documents]
+          searchEngine.initialize([...this.documents])
+        }
         return document
       } catch (error) {
         console.error('创建文档失败:', error)
+        throw error
+      }
+    },
+
+    // 创建文件夹
+    async createFolder(title, parentId = null) {
+      try {
+        const folder = await storage.createFolder(title, parentId)
+        this.documents = [folder, ...this.documents]
+        return folder
+      } catch (error) {
+        console.error('创建文件夹失败:', error)
+        throw error
+      }
+    },
+
+    // 移动文档/文件夹
+    async moveDocument(id, newParentId) {
+      try {
+        const doc = this.documents.find(d => d.id === id)
+        if (!doc) throw new Error('Document not found')
+
+        // 避免循环引用（把父文件夹放进它自己的子文件夹）
+        if (doc.isFolder && newParentId) {
+          let currentParent = this.documents.find(d => d.id === newParentId)
+          while (currentParent) {
+            if (currentParent.id === id) {
+              throw new Error('Cannot move a folder into its own descendants')
+            }
+            currentParent = this.documents.find(d => d.id === currentParent.parentId)
+          }
+        }
+
+        doc.parentId = newParentId || null
+        await this.saveDocument(id, { parentId: doc.parentId })
+      } catch (error) {
+        console.error('移动文档失败:', error)
         throw error
       }
     },

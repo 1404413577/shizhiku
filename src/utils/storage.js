@@ -107,7 +107,9 @@ export class DocumentStorage {
       createdAt: 'string',
       updatedAt: 'string',
       isPreset: 'boolean',
-      originalPath: 'string'
+      originalPath: 'string',
+      parentId: 'string',
+      isFolder: 'boolean'
     }
 
     for (const [key, expectedType] of Object.entries(allowedProps)) {
@@ -152,7 +154,9 @@ export class DocumentStorage {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isPreset: Boolean(document.isPreset),
-      originalPath: String(document.originalPath || '')
+      originalPath: String(document.originalPath || ''),
+      parentId: document.parentId ? String(document.parentId) : null,
+      isFolder: Boolean(document.isFolder)
     }
   }
 
@@ -169,10 +173,28 @@ export class DocumentStorage {
       content,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      tags: []
+      tags: [],
+      parentId: null,
+      isFolder: false
     }
     
     return await this.saveDocument(id, document)
+  }
+
+  // 创建新文件夹
+  async createFolder(title, parentId = null) {
+    const id = 'folder_' + Date.now().toString()
+    const folder = {
+      title,
+      content: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      tags: [],
+      parentId,
+      isFolder: true
+    }
+    
+    return await this.saveDocument(id, folder)
   }
 
   // 导出所有文档

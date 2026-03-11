@@ -6,6 +6,8 @@ import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { seoPlugin } from './vite-plugins/seo-plugin.js'
 import hljs from 'highlight.js'
+import mathjax3 from 'markdown-it-mathjax3'
+import taskLists from 'markdown-it-task-lists'
 // docs-loader 在运行时可能依赖文件系统，使用按需导入以避免在 Vite 配置打包时出错
 let docsLoader
 let createDevDocsLoader
@@ -54,6 +56,9 @@ export default defineConfig({
             <pre class="hljs"><code>${highlightedCode}</code></pre>
           </div>`
         }
+        
+        md.use(mathjax3)
+        md.use(taskLists, { enabled: true, label: true })
       }
     }),
     AutoImport({

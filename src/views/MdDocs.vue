@@ -1,5 +1,8 @@
 <template>
   <div class="md-docs">
+    <!-- 阅读进度条 -->
+    <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
+    
     <!-- 左侧文档列表 -->
     <aside class="sidebar">
       <div class="sidebar-header">
@@ -66,7 +69,7 @@
         </div>
 
         <div class="markdown-content">
-          <el-scrollbar class="content-scrollbar">
+          <el-scrollbar class="content-scrollbar" @scroll="handleScroll">
             <div class="markdown-body" @click="handleContentClick">
               <component :is="current" />
             </div>
@@ -95,6 +98,7 @@ import { ref, computed, watch } from 'vue'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
 import { markdownProcessor } from '@/utils/markdown.js'
+import { ElMessage } from 'element-plus'
 
 // SEO 配置
 usePageSEO({
@@ -110,6 +114,7 @@ const docs = Object.entries(modules).map(([path, comp]) => ({ path, comp: comp.d
 const current = ref(docs[0]?.comp || null)
 const activeKey = ref(docs[0]?.path || '')
 const query = ref('')
+const readingProgress = ref(0) // 阅读进度
 
 const filtered = computed(() => {
   if (!query.value) return docs
@@ -143,8 +148,35 @@ function refreshContent() {
   }, 50)
 }
 
+function handleScroll({ scrollTop }) {
+  // 查找滚动容器元素
+  const scrollWrap = document.querySelector('.markdown-content .el-scrollbar__wrap')
+  if (!scrollWrap) return
+  
+  const scrollHeight = scrollWrap.scrollHeight
+  const clientHeight = scrollWrap.clientHeight
+  
+  if (scrollHeight <= clientHeight) {
+    readingProgress.value = 0
+    return
+  }
+  
+  const percent = (scrollTop / (scrollHeight - clientHeight)) * 100
+  readingProgress.value = Math.min(100, Math.max(0, percent))
+}
+
 function handleContentClick(event) {
+  // 处理代码复制
   markdownProcessor.handleCopyClick(event)
+
+  // 处理静态文档中的复选框点击
+  const target = event.target
+  if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {
+    event.preventDefault()
+    // 强制还原勾选状态
+    target.checked = !target.checked
+    ElMessage.warning('静态文档的待办状态无法持久保存')
+  }
 }
 
 // 监听内容更换，重新渲染 Mermaid

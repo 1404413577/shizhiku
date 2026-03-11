@@ -1,6 +1,8 @@
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import mermaid from 'mermaid'
+import mathjax3 from 'markdown-it-mathjax3'
+import taskLists from 'markdown-it-task-lists'
 
 // 初始化 Mermaid，配置为稍后手动触发，支持随黑白主题自动变化
 mermaid.initialize({
@@ -39,6 +41,10 @@ const md = new MarkdownIt({
     </div>`
   }
 })
+
+// 注册插件
+md.use(mathjax3)
+md.use(taskLists, { enabled: true, label: true })
 
 // 可以在这里添加更多插件
 // md.use(markdownItAnchor, {
@@ -163,6 +169,44 @@ export class MarkdownProcessor {
     } catch (err) {
       console.error('Mermaid 渲染失败:', err)
     }
+  }
+
+  // 处理复选框的点击以同步 markdown 原文
+  syncCheckboxUpdate(originalMarkdown, checkboxElement) {
+    if (!checkboxElement.classList.contains('task-list-item-checkbox')) return null
+
+    // 寻找它是所有的 checkbox 中的第几个
+    const allCheckboxes = document.querySelectorAll('.markdown-body .task-list-item-checkbox')
+    let checkboxIndex = -1
+    for (let i = 0; i < allCheckboxes.length; i++) {
+      if (allCheckboxes[i] === checkboxElement) {
+        checkboxIndex = i
+        break
+      }
+    }
+
+    if (checkboxIndex === -1) return null
+
+    const isChecked = checkboxElement.checked
+    const lines = originalMarkdown.split('\n')
+    let currentCheckboxCount = 0
+
+    // 匹配原始的 - [ ] (注意这里正则表达式考虑到多级缩进或者非横杠的列表标记比如 * 或 +)
+    // 匹配如: - [ ], * [x],   + [ ]
+    const checkboxRegex = /^(\s*[-*+]\s+\[)[ xX](\])/
+
+    for (let i = 0; i < lines.length; i++) {
+      if (checkboxRegex.test(lines[i])) {
+        if (currentCheckboxCount === checkboxIndex) {
+          // 修改当前行的 checkbox 状态
+          lines[i] = lines[i].replace(checkboxRegex, `$1${isChecked ? 'x' : ' '}$2`)
+          return lines.join('\n')
+        }
+        currentCheckboxCount++
+      }
+    }
+
+    return null
   }
 }
 

@@ -96,54 +96,87 @@
           </div>
         </div>
 
-        <!-- 用户文档区域 -->
-        <div v-if="userDocuments.length > 0" class="document-section">
+        <!-- 用户文档区域 (树形目录) -->
+        <div class="document-section">
           <div class="section-header">
             <span class="section-title">我的文档</span>
-            <span class="section-count">({{ userDocuments.length }})</span>
-          </div>
-          <div
-            v-for="doc in userDocuments"
-            :key="doc.id"
-            class="document-item"
-            :class="{ active: isActiveDocument(doc.id) }"
-            @click="selectDocument(doc)"
-          >
-            <div class="doc-title">{{ doc.title }}</div>
-            <div class="doc-meta">
-              <span class="doc-date">{{ formatDate(doc.updatedAt) }}</span>
-              <div class="doc-actions">
-                <el-button
-                  size="small"
-                  text
-                  @click.stop="editDocument(doc)"
-                  :icon="Edit"
-                  title="编辑文档"
-                  circle
-                />
-                <el-button
-                  size="small"
-                  text
-                  type="danger"
-                  @click.stop="deleteDocument(doc)"
-                  :icon="Delete"
-                  title="删除文档"
-                  circle
-                />
-              </div>
-            </div>
-            <div class="doc-summary">{{ doc.summary || '暂无内容' }}</div>
-            <div class="doc-tags" v-if="doc.tags && doc.tags.length > 0">
-              <el-tag
-                v-for="tag in doc.tags"
-                :key="tag"
+            <div class="section-actions">
+              <el-button
                 size="small"
-                type="info"
-              >
-                {{ tag }}
-              </el-tag>
+                text
+                @click="createNewFolder(null)"
+                title="新建根文件夹"
+                :icon="FolderAdd"
+                circle
+              />
             </div>
           </div>
+          <el-tree
+            ref="docTreeRef"
+            :data="userDocumentTree"
+            node-key="id"
+            draggable
+            :allow-drop="allowDrop"
+            @node-drop="handleNodeDrop"
+            @node-click="handleNodeClick"
+            :expand-on-click-node="false"
+            :highlight-current="true"
+            class="document-tree"
+          >
+            <template #default="{ node, data }">
+              <div
+                class="custom-tree-node"
+                :class="{ 'is-active': isActiveDocument(data.id), 'is-folder': data.isFolder }"
+              >
+                <div class="node-label">
+                  <el-icon class="node-icon">
+                    <Folder v-if="data.isFolder" />
+                    <Document v-else />
+                  </el-icon>
+                  <span class="title-text">{{ data.title }}</span>
+                </div>
+                <div class="node-actions" @click.stop>
+                  <template v-if="data.isFolder">
+                    <el-button
+                      size="small"
+                      text
+                      @click="createNewDocument(data.id)"
+                      :icon="DocumentAdd"
+                      title="新建子文档"
+                      circle
+                    />
+                    <el-button
+                      size="small"
+                      text
+                      @click="createNewFolder(data.id)"
+                      :icon="FolderAdd"
+                      title="新建子文件夹"
+                      circle
+                    />
+                  </template>
+                  <template v-else>
+                    <el-button
+                      size="small"
+                      text
+                      @click="editDocument(data)"
+                      :icon="Edit"
+                      title="编辑文档"
+                      circle
+                    />
+                  </template>
+                  <el-button
+                    size="small"
+                    text
+                    type="danger"
+                    @click="deleteItem(data)"
+                    :icon="Delete"
+                    title="删除"
+                    circle
+                  />
+                </div>
+              </div>
+            </template>
+          </el-tree>
         </div>
 
         <!-- 空状态 -->
@@ -256,54 +289,40 @@
             </div>
           </div>
 
-          <!-- 用户文档区域 -->
-          <div v-if="userDocuments.length > 0" class="document-section">
+          <!-- 用户文档区域 (移动端) -->
+          <div class="document-section">
             <div class="section-header">
               <span class="section-title">我的文档</span>
-              <span class="section-count">({{ userDocuments.length }})</span>
-            </div>
-            <div
-              v-for="doc in userDocuments"
-              :key="doc.id"
-              class="document-item"
-              :class="{ active: isActiveDocument(doc.id) }"
-              @click="selectDocument(doc)"
-            >
-              <div class="doc-title">{{ doc.title }}</div>
-              <div class="doc-meta">
-                <span class="doc-date">{{ formatDate(doc.updatedAt) }}</span>
-                <div class="doc-actions">
-                  <el-button
-                    size="small"
-                    text
-                    @click.stop="editDocument(doc)"
-                    :icon="Edit"
-                    title="编辑文档"
-                    circle
-                  />
-                  <el-button
-                    size="small"
-                    text
-                    type="danger"
-                    @click.stop="deleteDocument(doc)"
-                    :icon="Delete"
-                    title="删除文档"
-                    circle
-                  />
-                </div>
-              </div>
-              <div class="doc-summary">{{ doc.summary || '暂无内容' }}</div>
-              <div class="doc-tags" v-if="doc.tags && doc.tags.length > 0">
-                <el-tag
-                  v-for="tag in doc.tags"
-                  :key="tag"
+              <div class="section-actions">
+                <el-button
                   size="small"
-                  type="info"
-                >
-                  {{ tag }}
-                </el-tag>
+                  text
+                  @click="createNewFolder(null)"
+                  title="新建根文件夹"
+                  :icon="FolderAdd"
+                  circle
+                />
               </div>
             </div>
+            <el-tree
+              :data="userDocumentTree"
+              node-key="id"
+              @node-click="handleNodeClickMobile"
+              :expand-on-click-node="false"
+              class="document-tree"
+            >
+              <template #default="{ node, data }">
+                <div class="custom-tree-node" :class="{ 'is-active': isActiveDocument(data.id) }">
+                  <div class="node-label">
+                    <el-icon class="node-icon">
+                      <Folder v-if="data.isFolder" />
+                      <Document v-else />
+                    </el-icon>
+                    <span class="title-text">{{ data.title }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-tree>
           </div>
 
           <!-- 空状态 -->
@@ -387,14 +406,18 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
 
 const isDark = useDark()
 const _toggleDark = useToggle(isDark)
-const toggleDark = () => {
-  _toggleDark()
+
+const toggleDark = (val) => {
+  // el-switch 的 @change 会传布尔值进来，直接用传入的值设置暗色模式
+  _toggleDark(val)
+  
+  // 切换主题后重新渲染可能有颜色依赖的 Mermaid 图表
   setTimeout(() => {
     markdownProcessor.renderMermaid()
   }, 100)
@@ -404,6 +427,7 @@ const router = useRouter()
 const route = useRoute()
 const documentsStore = useDocumentsStore()
 const fileInput = ref(null)
+const docTreeRef = ref(null)
 
 // 响应式数据
 const searchQuery = ref('')
@@ -424,6 +448,29 @@ const activeNav = computed(() => {
 const filteredDocuments = computed(() => documentsStore.filteredDocuments)
 const allTags = computed(() => documentsStore.allTags)
 const currentDocument = computed(() => documentsStore.currentDocument)
+
+const userDocumentTree = computed(() => {
+  const tree = documentsStore.documentTree
+  
+  // 应用搜索和标签过滤（简单平铺展示匹配项，或保留树结构但只对过滤后文档建立树）
+  if (searchQuery.value.trim() || selectedTags.value.length > 0) {
+    // 若开启搜索，为了方便，这里退回到展示过滤后的平铺列表（将内容包装为树节点形状）
+    const filtered = documentsStore.getUserDocuments().filter(doc => filteredDocuments.value.includes(doc))
+    return filtered.map(doc => ({ ...doc, children: [] }))
+  }
+
+  // 过滤掉预设文档和动态文档
+  const filterUserTree = (nodes) => {
+    return nodes.filter(node => !node.isPreset && !node.isDynamic).map(node => {
+      if (node.children) {
+        return { ...node, children: filterUserTree(node.children) }
+      }
+      return node
+    })
+  }
+
+  return filterUserTree(tree)
+})
 
 // 获取当前路由中的文档ID
 const currentDocumentId = computed(() => {
@@ -467,9 +514,55 @@ const handleNavSelect = (index) => {
   }
 }
 
+// 树组件节点操作相关方法
+const handleNodeClick = (data, node) => {
+  if (data.isFolder) {
+    // 文件夹：如果是左击，通常树组件自带展开/折叠，如果配置了 expand-on-click-node = false，我们需要手动
+    node.expanded = !node.expanded
+  } else {
+    selectDocument(data)
+  }
+}
 
+const handleNodeClickMobile = (data, node) => {
+  if (data.isFolder) {
+    node.expanded = !node.expanded
+  } else {
+    selectDocument(data)
+  }
+}
 
-const createNewDocument = async () => {
+// 是否允许拖拽放入该节点
+const allowDrop = (draggingNode, dropNode, type) => {
+  // 只允许放入文件夹内部，或作为同级元素(type == 'prev'|'next')
+  if (type === 'inner') {
+    return dropNode.data.isFolder
+  }
+  return true
+}
+
+// 处理节点拖拽结束
+const handleNodeDrop = async (draggingNode, dropNode, dropType, ev) => {
+  try {
+    const docId = draggingNode.data.id
+    let newParentId = null
+
+    if (dropType === 'inner') {
+      newParentId = dropNode.data.id
+    } else {
+      newParentId = dropNode.data.parentId || null
+    }
+
+    await documentsStore.moveDocument(docId, newParentId)
+    ElMessage.success('移动成功')
+  } catch (err) {
+    ElMessage.error(err.message || '移动失败')
+    // 刷新数据以还原UI
+    await documentsStore.loadDocuments()
+  }
+}
+
+const createNewDocument = async (parentId = null) => {
   try {
     const { value: title } = await ElMessageBox.prompt('请输入文档标题', '新建文档', {
       confirmButtonText: '创建',
@@ -478,7 +571,7 @@ const createNewDocument = async () => {
       inputErrorMessage: '标题不能为空'
     })
 
-    const doc = await documentsStore.createDocument(title)
+    const doc = await documentsStore.createDocument(title, '', parentId)
     router.push(`/editor/${doc.id}`)
   } catch (error) {
     if (error !== 'cancel') {
@@ -487,11 +580,29 @@ const createNewDocument = async () => {
   }
 }
 
+const createNewFolder = async (parentId = null) => {
+  try {
+    const { value: title } = await ElMessageBox.prompt('请输入文件夹名称', '新建文件夹', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /.+/,
+      inputErrorMessage: '名称不能为空'
+    })
+
+    await documentsStore.createFolder(title, parentId)
+    ElMessage.success('创建文件夹成功')
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('创建文件夹失败')
+    }
+  }
+}
+
 const selectDocument = async (doc) => {
   try {
     // 先更新当前文档状态
     await documentsStore.getDocument(doc.id)
-    // Kemudian导航到查看页面
+    // 导航到查看页面
     await router.push(`/view/${doc.id}`)
     // 移动端关闭侧边栏抽屉
     drawerVisible.value = false
@@ -505,16 +616,23 @@ const editDocument = (doc) => {
   router.push(`/editor/${doc.id}`)
 }
 
-const deleteDocument = async (doc) => {
+const deleteItem = async (data) => {
   // 预设文档不能删除
-  if (doc.isPreset) {
+  if (data.isPreset) {
     ElMessage.warning('预设文档不能删除')
+    return
+  }
+
+  const typeName = data.isFolder ? '文件夹' : '文档'
+
+  if (data.isFolder && data.children && data.children.length > 0) {
+    ElMessage.warning('文件夹非空，无法直接删除')
     return
   }
 
   try {
     await ElMessageBox.confirm(
-      `确定要删除文档 "${doc.title}" 吗？`,
+      `确定要删除${typeName} "${data.title}" 吗？`,
       '删除确认',
       {
         confirmButtonText: '删除',
@@ -523,11 +641,11 @@ const deleteDocument = async (doc) => {
       }
     )
 
-    await documentsStore.deleteDocument(doc.id)
-    ElMessage.success('文档已删除')
+    await documentsStore.deleteDocument(data.id)
+    ElMessage.success(`${typeName}已删除`)
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('删除文档失败')
+      ElMessage.error(`删除${typeName}失败`)
     }
   }
 }
@@ -657,6 +775,71 @@ onMounted(async () => {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+}
+
+/* 树形目录样式 */
+.document-tree {
+  background: transparent;
+}
+
+.custom-tree-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  padding-right: 8px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  width: 0; /* 让 flex: 1 能够收缩 */
+}
+
+.custom-tree-node:hover {
+  background-color: var(--el-fill-color-light);
+}
+
+.custom-tree-node.is-active {
+  color: var(--el-color-primary);
+  font-weight: bold;
+}
+
+.node-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-icon {
+  font-size: 16px;
+  color: var(--el-text-color-secondary);
+}
+
+.custom-tree-node.is-folder .node-icon {
+  color: #e6a23c;
+}
+
+.node-actions {
+  display: none;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.el-tree-node__content:hover .node-actions {
+  display: flex;
+}
+
+/* 覆盖 el-tree 默认样式以适应右侧按钮 */
+.document-list :deep(.el-tree-node__content) {
+  height: 36px;
 }
 
 .sidebar-footer {

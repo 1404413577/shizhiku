@@ -1,5 +1,8 @@
 <template>
-  <div class="viewer-page">
+  <div class="viewer-page" @scroll="handleScroll" ref="pageRef">
+    <!-- 阅读进度条 -->
+    <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
+
     <!-- 文档头部 -->
     <div class="document-header">
       <div class="header-content">
@@ -193,12 +196,16 @@ const documentsStore = useDocumentsStore()
 const currentDoc = ref(null)
 const shareDialogVisible = ref(false)
 const contentRef = ref(null)
+const pageRef = ref(null)
 const loading = ref(false)
 
 // 目录相关状态
 const tocCollapsed = ref(false)
 const activeHeading = ref('')
 const headingObserver = ref(null)
+
+// 阅读进度
+const readingProgress = ref(0)
 
 // 计算属性
 const renderedContent = computed(() => {
@@ -287,8 +294,30 @@ const downloadMarkdown = () => {
 }
 
 // 处理文档内容点击（事件代理用于代码复制等）
-const handleContentClick = (event) => {
-  markdownProcessor.handleCopyClick(event)
+const handleContentClick = async (e) => {
+  markdownProcessor.handleCopyClick(e)
+
+  const target = e.target
+  
+  // 处理待办事项复选框点击
+  if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {
+    if (!currentDoc.value || !currentDoc.value.content) return
+
+    const newMarkdown = markdownProcessor.syncCheckboxUpdate(currentDoc.value.content, target)
+    if (newMarkdown !== null) {
+      try {
+        currentDoc.value.content = newMarkdown
+        await documentsStore.saveDocument(currentDoc.value)
+      } catch (error) {
+        console.error('Failed to save document:', error)
+        target.checked = !target.checked // 还原状态
+        ElMessage.error('无法保存待办状态更改')
+      }
+    } else {
+      target.checked = !target.checked
+      ElMessage.warning('未能同步待办事项状态')
+    }
+  }
 }
 
 // 获取最近的可滚动容器（垂直方向）
@@ -374,6 +403,24 @@ const setupScrollSpy = () => {
       headingObserver.value.observe(el)
     }
   })
+}
+
+// 监听阅读进度
+const handleScroll = (e) => {
+  const target = e.target
+  if (!target) return
+  
+  const scrollTop = target.scrollTop
+  const scrollHeight = target.scrollHeight
+  const clientHeight = target.clientHeight
+  
+  if (scrollHeight <= clientHeight) {
+    readingProgress.value = 0
+    return
+  }
+  
+  const percent = (scrollTop / (scrollHeight - clientHeight)) * 100
+  readingProgress.value = Math.min(100, Math.max(0, percent))
 }
 
 const formatDate = (dateString) => {
@@ -490,8 +537,9 @@ const addHeadingIds = () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  background: white;
-  min-height: 100vh;
+  background: var(--el-bg-color);
+  height: 100vh;
+  overflow-y: auto;
   position: relative;
 }
 
