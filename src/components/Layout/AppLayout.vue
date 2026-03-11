@@ -351,6 +351,18 @@
             <span>关于我</span>
           </el-menu-item>
         </el-menu>
+
+        <!-- 主题切换按钮 -->
+        <div class="theme-switch-container">
+          <el-switch
+            v-model="isDark"
+            inline-prompt
+            :active-icon="Moon"
+            :inactive-icon="Sunny"
+            @change="toggleDark"
+            style="--el-switch-on-color: #2c2c2c; --el-switch-off-color: #f2f2f2"
+          />
+        </div>
       </div>
 
       <!-- 页面内容 -->
@@ -375,7 +387,11 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny } from '@element-plus/icons-vue'
+import { useDark, useToggle } from '@vueuse/core'
+
+const isDark = useDark()
+const toggleDark = useToggle(isDark)
 
 const router = useRouter()
 const route = useRoute()
@@ -541,8 +557,8 @@ onMounted(async () => {
 }
 
 .sidebar {
-  background: #f5f5f5;
-  border-right: 1px solid #e0e0e0;
+  background: var(--el-bg-color-page);
+  border-right: 1px solid var(--el-border-color);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -550,7 +566,7 @@ onMounted(async () => {
 
 .sidebar-header {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--el-border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -558,7 +574,7 @@ onMounted(async () => {
 
 .sidebar-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--el-text-color-primary);
 }
 
 .search-box {
@@ -579,7 +595,7 @@ onMounted(async () => {
 .document-item {
   padding: 15px;
   margin: 5px 0;
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -599,7 +615,7 @@ onMounted(async () => {
 .doc-title {
   font-weight: bold;
   margin-bottom: 5px;
-  color: #333;
+  color: var(--el-text-color-primary);
 }
 
 .doc-meta {
@@ -611,7 +627,7 @@ onMounted(async () => {
 
 .doc-date {
   font-size: 12px;
-  color: #999;
+  color: var(--el-text-color-secondary);
 }
 
 .doc-actions {
@@ -625,7 +641,7 @@ onMounted(async () => {
 
 .doc-summary {
   font-size: 12px;
-  color: #666;
+  color: var(--el-text-color-regular);
   line-height: 1.4;
   margin-bottom: 8px;
 }
@@ -638,7 +654,7 @@ onMounted(async () => {
 
 .sidebar-footer {
   padding: 20px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--el-border-color);
 }
 
 .footer-actions {
@@ -654,15 +670,24 @@ onMounted(async () => {
 
 .main-content {
   padding: 0;
-  background: white;
+  background: var(--el-bg-color);
   display: flex;
   flex-direction: column;
 }
 
 .top-nav {
-  background: var(--color-bg-elevated);
-  border-bottom: 1px solid var(--color-border-primary);
+  background: var(--el-bg-color-overlay);
+  border-bottom: 1px solid var(--el-border-color);
   padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-switch-container {
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
 }
 
 .nav-menu {
@@ -703,12 +728,12 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 15px;
-  background: #f0f0f0;
+  background: var(--el-fill-color-light);
   border-radius: 6px;
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: bold;
-  color: #666;
+  color: var(--el-text-color-regular);
 }
 
 .section-title {
@@ -716,7 +741,7 @@ onMounted(async () => {
 }
 
 .section-count {
-  color: #999;
+  color: var(--el-text-color-secondary);
   font-weight: normal;
 }
 
