@@ -4,20 +4,29 @@
     <el-aside width="300px" class="sidebar hidden-xs-only">
       <div class="sidebar-header">
         <h2>知识库</h2>
-        <div style="display: flex; gap: 8px; align-items: center;">
+        <div style="display: flex; gap: 4px; align-items: center;">
           <el-button
             @click="router.push('/graph')"
             :icon="Share"
             circle
+            size="small"
             title="查看关系图谱"
+          />
+          <el-button
+            @click="router.push('/settings')"
+            :icon="Setting"
+            circle
+            size="small"
+            title="设置"
           />
           <el-button
             type="primary"
             @click="createNewDocument(null)"
             :icon="Plus"
+            style="margin-left: 4px;"
             round
           >
-            新建文档
+            新建
           </el-button>
         </div>
       </div>
@@ -226,20 +235,29 @@
       <div class="sidebar mobile-sidebar">
         <div class="sidebar-header">
           <h2>知识库</h2>
-          <div style="display: flex; gap: 8px; align-items: center;">
+          <div style="display: flex; gap: 4px; align-items: center;">
             <el-button
               @click="router.push('/graph')"
               :icon="Share"
               circle
+              size="small"
               title="查看关系图谱"
+            />
+            <el-button
+              @click="router.push('/settings')"
+              :icon="Setting"
+              circle
+              size="small"
+              title="设置"
             />
             <el-button
               type="primary"
               @click="createNewDocument(null)"
               :icon="Plus"
+              style="margin-left: 4px;"
               round
             >
-              新建文档
+              新建
             </el-button>
           </div>
         </div>
@@ -443,7 +461,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
 

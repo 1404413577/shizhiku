@@ -5,6 +5,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { seoPlugin } from './vite-plugins/seo-plugin.js'
+import { VitePWA } from 'vite-plugin-pwa'
 import hljs from 'highlight.js'
 import mathjax3 from 'markdown-it-mathjax3'
 import taskLists from 'markdown-it-task-lists'
@@ -97,6 +98,57 @@ export default defineConfig({
     }),
   // 按需启用 docsLoader（如果模块可用）
   ...(docsLoader ? [docsLoader()] : []),
+  VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'logo.png', 'robots.txt', 'apple-touch-icon.png'],
+      manifest: {
+        name: '知时库 - 极简个人知识库',
+        short_name: '知时库',
+        description: '一个极简、私密、现代的个人知识库管理系统',
+        theme_color: '#409eff',
+        background_color: '#ffffff',
+        start_url: '/shizhiku/',
+        display: 'standalone',
+        icons: [
+          {
+            src: 'logo.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'logo.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,md,woff2}'],
+        // 缓存 GitHub Pages 静态资源
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      }
+    })
   ],
   server: {
     watch: {

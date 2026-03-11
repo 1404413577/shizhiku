@@ -5,7 +5,63 @@
 </template>
 
 <script setup>
+import { watchEffect, onMounted } from 'vue'
 import AppLayout from '@/components/Layout/AppLayout.vue'
+import { useSettingsStore } from '@/stores/settings.js'
+
+const settings = useSettingsStore()
+
+// 应用全局样式设置
+watchEffect(() => {
+  const root = document.documentElement
+  const color = settings.primaryColor
+  
+  // 设置主题色
+  root.style.setProperty('--el-color-primary', color)
+  
+  // 生成一些衍生的颜色变体 (Element Plus 常用后缀)
+  // 简单的透明度叠加模拟
+  root.style.setProperty('--el-color-primary-light-3', color + 'b3') 
+  root.style.setProperty('--el-color-primary-light-5', color + '80')
+  root.style.setProperty('--el-color-primary-light-7', color + '4d')
+  root.style.setProperty('--el-color-primary-light-8', color + '33')
+  root.style.setProperty('--el-color-primary-light-9', color + '1a')
+  root.style.setProperty('--el-color-primary-dark-2', color) // 简单模拟深色
+
+  // 设置字体大小和行高
+  root.style.setProperty('--md-font-size', settings.fontSize + 'px')
+  root.style.setProperty('--md-line-height', settings.lineWeight)
+})
+
+onMounted(async () => {
+  // 自动同步逻辑 (WebDAV)
+  const performSync = async () => {
+    if (settings.webdavUrl && settings.webdavUsername && settings.webdavPassword) {
+      const { useDocumentsStore } = await import('@/stores/documents.js')
+      const { syncWithWebDAV } = await import('@/utils/webdav.js')
+      const docsStore = useDocumentsStore()
+      try {
+        await syncWithWebDAV(settings, docsStore.documents)
+        console.log('✅ 自动同步完成')
+      } catch (err) {
+        console.warn('自动同步失败:', err.message)
+      }
+    }
+  }
+
+  if (settings.syncOnOpen) {
+    console.log('🔄 正在执行打开时自动同步...')
+    await performSync()
+  }
+
+  // 定期自动备份逻辑 (每10分钟)
+  setInterval(() => {
+    if (settings.autoBackup) {
+      console.log('⏰ 正在执行定期自动备份...')
+      performSync()
+    }
+  }, 10 * 60 * 1000)
+})
 </script>
 
 <style>
@@ -134,6 +190,11 @@ body {
   margin: 0 8px 0 -24px;
   vertical-align: middle;
   cursor: pointer;
+}
+
+.markdown-body {
+  font-size: var(--md-font-size, 16px);
+  line-height: var(--md-line-height, 1.6);
 }
 
 /* Obsidian 双向链接样式 */

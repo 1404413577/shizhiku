@@ -5,25 +5,36 @@
 
     <!-- 文档头部 -->
     <div class="document-header">
-      <div class="header-content">
-        <h1 class="document-title">{{ currentDoc?.title }}</h1>
-        <div class="document-meta">
-          <span class="meta-item">
-            创建时间: {{ formatDate(currentDoc?.createdAt) }}
-          </span>
-          <span class="meta-item">
-            更新时间: {{ formatDate(currentDoc?.updatedAt) }}
-          </span>
-        </div>
-        <div class="document-tags" v-if="currentDoc?.tags && currentDoc.tags.length > 0">
-          <el-tag
-            v-for="tag in currentDoc.tags"
-            :key="tag"
-            type="info"
-            size="small"
-          >
-            {{ tag }}
-          </el-tag>
+      <div class="header-left">
+        <el-button
+          v-if="canGoBack"
+          circle
+          size="small"
+          :icon="ArrowLeft"
+          @click="goBack"
+          class="back-button"
+          title="返回前一页"
+        />
+        <div class="header-content">
+          <h1 class="document-title">{{ currentDoc?.title }}</h1>
+          <div class="document-meta">
+            <span class="meta-item">
+              创建时间: {{ formatDate(currentDoc?.createdAt) }}
+            </span>
+            <span class="meta-item">
+              更新时间: {{ formatDate(currentDoc?.updatedAt) }}
+            </span>
+          </div>
+          <div class="document-tags" v-if="currentDoc?.tags && currentDoc.tags.length > 0">
+            <el-tag
+              v-for="tag in currentDoc.tags"
+              :key="tag"
+              type="info"
+              size="small"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
         </div>
       </div>
       
@@ -180,7 +191,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage } from 'element-plus'
-import { Edit, Download, Share, Expand, Fold, InfoFilled } from '@element-plus/icons-vue'
+import { Edit, Download, Share, Expand, Fold, InfoFilled, ArrowLeft } from '@element-plus/icons-vue'
 import { saveAs } from 'file-saver'
 
 // 在开发环境中引入调试工具
@@ -191,6 +202,11 @@ if (import.meta.env.DEV) {
 const route = useRoute()
 const router = useRouter()
 const documentsStore = useDocumentsStore()
+
+const canGoBack = computed(() => window.history.length > 1)
+const goBack = () => {
+  router.back()
+}
 
 // 响应式数据
 const currentDoc = ref(null)

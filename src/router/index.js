@@ -42,6 +42,12 @@ const routes = [
     name: 'GraphView',
     component: () => import('@/views/GraphView.vue'),
     meta: { title: '关系图谱' }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/SettingsView.vue'),
+    meta: { title: '设置' }
   }
 ]
 

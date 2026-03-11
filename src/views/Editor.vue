@@ -6,6 +6,15 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="toolbar-left">
+        <el-button
+          v-if="canGoBack"
+          circle
+          size="small"
+          :icon="ArrowLeft"
+          @click="goBack"
+          title="返回"
+          style="margin-right: 8px;"
+        />
         <el-input
           v-model="documentTitle"
           placeholder="文档标题"
@@ -122,11 +131,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Plus, Edit, Delete, Folder, ArrowRight, View, Reading } from '@element-plus/icons-vue'
+import { Document, Plus, Edit, Delete, Folder, ArrowRight, View, Reading, ArrowLeft } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const documentsStore = useDocumentsStore()
+
+const canGoBack = computed(() => window.history.length > 1)
+const goBack = () => {
+  router.back()
+}
 
 // 响应式数据
 const documentId = ref(route.params.id)

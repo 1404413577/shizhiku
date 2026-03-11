@@ -7,6 +7,12 @@ import 'highlight.js/styles/github.css'
 import App from './App.vue'
 import router from './router'
 import { initPerformanceMonitoring } from './utils/performance.js'
+import { registerSW } from 'virtual:pwa-register'
+
+// 注册 PWA Service Worker
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true })
+}
 
 // 在开发环境中引入调试工具
 if (import.meta.env.DEV) {

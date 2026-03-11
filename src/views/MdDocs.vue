@@ -58,6 +58,15 @@
       <div v-if="current" class="content-wrapper">
         <div class="content-header">
           <div class="content-title">
+            <el-button
+              v-if="canGoBack"
+              circle
+              size="small"
+              :icon="ArrowLeft"
+              @click="goBack"
+              title="返回"
+              style="margin-right: 12px; flex-shrink: 0;"
+            />
             <el-icon><Reading /></el-icon>
             {{ currentDocName }}
           </div>
@@ -97,12 +106,17 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePageSEO } from '@/composables/useSEO.js'
-import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
+import { Document, Search, Reading, Refresh, ArrowLeft } from '@element-plus/icons-vue'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDocumentsStore } from '@/stores/documents.js'
 
 const router = useRouter()
+
+const canGoBack = computed(() => window.history.length > 1)
+const goBack = () => {
+  router.back()
+}
 
 // SEO 配置
 usePageSEO({
