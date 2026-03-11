@@ -218,7 +218,7 @@ function handleContentClick(asyncEvent) {
     const targetDoc = allDocs.find(d => d.title === docTitle && !d.isFolder)
 
     if (targetDoc) {
-      router.push(`/view/${targetDoc.id}`)
+      router.push(`/view/${encodeURIComponent(targetDoc.id)}`)
     } else {
       ElMessageBox.confirm(
         `文档 "[[${docTitle}]]" 在动态知识库中尚不存在，是否立即创建并跳转？\n（注：该操作会在右侧知识库中创建新文件）`,
@@ -226,7 +226,7 @@ function handleContentClick(asyncEvent) {
         { confirmButtonText: '创建', cancelButtonText: '取消', type: 'info' }
       ).then(async () => {
         const newDoc = await store.createDocument(docTitle)
-        router.push(`/editor/${newDoc.id}`)
+        router.push(`/editor/${encodeURIComponent(newDoc.id)}`)
       }).catch(() => {})
     }
     return

@@ -73,6 +73,37 @@
           </el-form>
         </el-card>
 
+        <!-- AI 配置 -->
+        <el-card class="settings-card">
+          <template #header>
+            <div class="card-header">
+              <el-icon><ChatDotRound /></el-icon>
+              <span>AI 辅助功能配置</span>
+            </div>
+          </template>
+          
+          <el-alert
+            title="纯前端运行说明"
+            type="info"
+            description="由于本地知识库没有独立后端，所有的 AI 功能都是直接从您的浏览器跨域请求您配置的 AI 网关。请确保您填写的 Base URL 能够处理跨域 (CORS) 请求。"
+            show-icon
+            :closable="false"
+            style="margin-bottom: 20px"
+          />
+
+          <el-form label-width="120px">
+            <el-form-item label="API Base URL">
+              <el-input v-model="settings.aiBaseUrl" placeholder="https://api.openai.com/v1" />
+            </el-form-item>
+            <el-form-item label="API Key">
+              <el-input v-model="settings.aiApiKey" type="password" show-password placeholder="sk-..." />
+            </el-form-item>
+            <el-form-item label="默认模型">
+              <el-input v-model="settings.aiModel" placeholder="gpt-3.5-turbo (或 deepseek-chat 等)" />
+            </el-form-item>
+          </el-form>
+        </el-card>
+
         <!-- 备份与恢复 -->
         <el-card class="settings-card">
           <template #header>
@@ -105,7 +136,7 @@
 import { ref } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useDocumentsStore } from '@/stores/documents'
-import { Brush, Refresh, Box, Download, Upload, Connection } from '@element-plus/icons-vue'
+import { Brush, Refresh, Box, Download, Upload, Connection, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { syncWithWebDAV } from '@/utils/webdav'
 

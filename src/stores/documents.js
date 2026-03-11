@@ -3,6 +3,8 @@ import { storage } from '@/utils/storage.js'
 import { searchEngine } from '@/utils/search.js'
 import { presetDocsLoader } from '@/utils/presetDocs.js'
 import { markdownProcessor } from '@/utils/markdown.js'
+import { FSService } from '@/services/fs.js'
+import { ElMessage } from 'element-plus'
 
 export const useDocumentsStore = defineStore('documents', {
   state: () => ({
@@ -12,7 +14,9 @@ export const useDocumentsStore = defineStore('documents', {
     searchQuery: '',
     searchResults: [],
     selectedTags: [],
-    isEditing: false
+    isEditing: false,
+    workspaceMode: 'indexeddb', // 'indexeddb' 或 'local'
+    localDirHandle: null
   }),
 
   getters: {
@@ -95,14 +99,54 @@ export const useDocumentsStore = defineStore('documents', {
   },
 
   actions: {
+    // 切换并加载本地工作区
+    async connectLocalWorkspace() {
+      try {
+        const handle = await FSService.requestWorkspaceAccess()
+        this.localDirHandle = handle
+        this.workspaceMode = 'local'
+        await this.loadDocuments()
+        ElMessage.success('已成功连接到本地工作区')
+      } catch (err) {
+        ElMessage.error(err.message || '连接本地工作区失败')
+      }
+    },
+
+    // 切换回浏览器内建存储
+    async switchToIndexedDB() {
+      this.workspaceMode = 'indexeddb'
+      this.localDirHandle = null
+      await this.loadDocuments()
+      ElMessage.success('已切换回浏览器内建存储')
+    },
+
+    // 尝试恢复上一次的本地工作区授权
+    async tryRestoreLocalWorkspace() {
+      try {
+        const handle = await FSService.loadStoredHandle()
+        if (handle && await FSService.verifyPermission(handle)) {
+          this.localDirHandle = handle
+          this.workspaceMode = 'local'
+          await this.loadDocuments()
+          return true
+        }
+      } catch (err) {
+        console.log('恢复本地工作区失败，可能是用户拒绝或首次打开', err)
+      }
+      return false
+    },
+
     // 加载所有文档
     async loadDocuments() {
       this.loading = true
       try {
-        this.documents = await storage.getAllDocuments()
-
-        // 检查是否需要加载预设文档
-        await this.loadPresetDocsIfNeeded()
+        if (this.workspaceMode === 'local') {
+          if (!this.localDirHandle) throw new Error('未连接本地文件夹')
+          this.documents = await FSService.getFiles(this.localDirHandle)
+        } else {
+          this.documents = await storage.getAllDocuments()
+          await this.loadPresetDocsIfNeeded()
+        }
 
         // 初始化搜索引擎
         searchEngine.initialize([...this.documents])
@@ -184,10 +228,26 @@ export const useDocumentsStore = defineStore('documents', {
 
     // 获取文档
     async getDocument(id) {
+      if (!id) return null
+      
       try {
-        const document = await storage.getDocument(id)
-        this.currentDocument = document
-        return document
+        if (this.workspaceMode === 'local') {
+          const doc = this.documents.find(d => d.id === id)
+          if (!doc) throw new Error('Document not found in local workspace')
+          
+          // 如果有句柄，尝试实时读取最新内容
+          if (doc._handle && doc._handle.kind === 'file') {
+            const file = await doc._handle.getFile()
+            doc.content = await file.text()
+            doc.updatedAt = new Date(file.lastModified).toISOString()
+          }
+          this.currentDocument = doc
+          return doc
+        } else {
+          const document = await storage.getDocument(id)
+          this.currentDocument = document
+          return document
+        }
       } catch (error) {
         console.error('获取文档失败:', error)
         throw error
@@ -197,15 +257,27 @@ export const useDocumentsStore = defineStore('documents', {
     // 创建文档 (新增 parentId 参数)
     async createDocument(title, content = '', parentId = null) {
       try {
-        const document = await storage.createDocument(title, content)
-        if (parentId) {
-          document.parentId = String(parentId)
-          // 立即触发一次保存以将 parentId 写入存储
+        let document
+        
+        if (this.workspaceMode === 'local') {
+          if (!this.localDirHandle) throw new Error('未连接本地工作区')
+          // 本地模式：直接创建 md 文件，暂不处理 parentId 复杂的目录层级，统一放根目录
+          const filename = title || '未命名'
+          document = await FSService.createFile(this.localDirHandle, filename, content)
+        } else {
+          document = await storage.createDocument(title, content)
+          if (parentId) {
+            document.parentId = String(parentId)
+          }
+        }
+
+        if (this.workspaceMode === 'indexeddb' && parentId) {
           await this.saveDocument(document.id, document)
         } else {
           this.documents = [document, ...this.documents]
           searchEngine.initialize([...this.documents])
         }
+        
         return document
       } catch (error) {
         console.error('创建文档失败:', error)
@@ -279,22 +351,36 @@ export const useDocumentsStore = defineStore('documents', {
 
     // 保存文档
     async saveDocument(id, updates) {
+      if (!id) return null
       try {
-        const document = await storage.saveDocument(id, updates)
+        let document = null
+
+        if (this.workspaceMode === 'local') {
+          // 本地模式仅处理 content 修改
+          const docIndex = this.documents.findIndex(d => d.id === id)
+          if (docIndex === -1) throw new Error('Local document not found in store')
+          
+          document = { ...this.documents[docIndex], ...updates }
+          
+          if (updates.content !== undefined && document._handle) {
+            await FSService.writeFile(document._handle, updates.content)
+            document.updatedAt = new Date().toISOString()
+          }
+        } else {
+          document = await storage.saveDocument(id, updates)
+        }
+
         const index = this.documents.findIndex(doc => doc.id === id)
         if (index !== -1) {
-          // 创建新的文档数组，避免直接修改响应式对象
           this.documents = [
             ...this.documents.slice(0, index),
             document,
             ...this.documents.slice(index + 1)
           ]
         } else {
-          // 如果文档不存在，添加到数组中
           this.documents = [...this.documents, document]
         }
 
-        // 重新初始化搜索引擎
         searchEngine.initialize([...this.documents])
         this.currentDocument = { ...document }
         return document
@@ -306,15 +392,43 @@ export const useDocumentsStore = defineStore('documents', {
 
     // 删除文档
     async deleteDocument(id) {
+      await this.deleteDocuments([id])
+    },
+
+    // 批量删除文档
+    async deleteDocuments(ids) {
+      if (!ids || ids.length === 0) return
+      
       try {
-        await storage.deleteDocument(id)
-        this.documents = this.documents.filter(doc => doc.id !== id)
+        const idSet = new Set(ids)
+        
+        if (this.workspaceMode === 'local') {
+          if (!this.localDirHandle) throw new Error('未连接本地工作区')
+          for (const id of ids) {
+            const doc = this.documents.find(d => d.id === id)
+            if (doc) {
+              await FSService.deleteFile(this.localDirHandle, doc.id)
+            }
+          }
+        } else {
+          // 对 IndexedDB 进行批量删除（虽然 storage.deleteDocument 目前是单条删除，我们在 store 循环调用）
+          for (const id of ids) {
+            await storage.deleteDocument(id)
+          }
+        }
+
+        // 更新本地状态：过滤掉被删除的 ID
+        this.documents = this.documents.filter(doc => !idSet.has(doc.id))
+        
+        // 重新初始化搜索引擎（只执行一次）
         searchEngine.initialize([...this.documents])
-        if (this.currentDocument && this.currentDocument.id === id) {
+        
+        // 如果当前正在查看的文档被删除了，清空当前文档
+        if (this.currentDocument && idSet.has(this.currentDocument.id)) {
           this.currentDocument = null
         }
       } catch (error) {
-        console.error('删除文档失败:', error)
+        console.error('批量删除失败:', error)
         throw error
       }
     },

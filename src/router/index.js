@@ -8,13 +8,13 @@ const routes = [
     meta: { title: '知识库首页' }
   },
   {
-    path: '/editor/:id?',
+    path: '/editor/:id(.*)?',
     name: 'Editor',
     component: () => import('@/views/Editor.vue'),
     meta: { title: '编辑器' }
   },
   {
-    path: '/view/:id',
+    path: '/view/:id(.*)',
     name: 'Viewer',
     component: () => import('@/views/Viewer.vue'),
     meta: { title: '文档查看' }

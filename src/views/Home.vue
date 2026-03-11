@@ -164,7 +164,7 @@ const createNewDocument = async () => {
     })
     
     const doc = await documentsStore.createDocument(title)
-    router.push(`/editor/${doc.id}`)
+    router.push(`/editor/${encodeURIComponent(doc.id)}`)
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('创建文档失败')
@@ -173,7 +173,7 @@ const createNewDocument = async () => {
 }
 
 const viewDocument = (doc) => {
-  router.push(`/view/${doc.id}`)
+  router.push(`/view/${encodeURIComponent(doc.id)}`)
 }
 
 const importData = () => {
@@ -344,6 +344,7 @@ onMounted(async () => {
   margin-bottom: 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

@@ -40,6 +40,16 @@
       
       <div class="header-actions">
         <el-button
+          type="success"
+          @click="generateSummary"
+          :icon="MagicStick"
+          size="small"
+          round
+        >
+          AI 总结
+        </el-button>
+
+        <el-button
           type="primary"
           @click="editDocument"
           :icon="Edit"
@@ -153,6 +163,24 @@
     <!-- 返回顶部按钮 -->
     <el-backtop target=".viewer-page" />
 
+    <!-- AI 总结抽屉 -->
+    <el-drawer
+      v-model="aiSummaryDrawerVisible"
+      title="✨ AI 智能总结"
+      direction="rtl"
+      size="350px"
+    >
+      <div class="ai-summary-content" v-loading="aiSummaryLoading">
+        <div v-if="aiSummaryContent" class="markdown-body" v-html="markdownProcessor.render(aiSummaryContent)"></div>
+        <div v-else-if="aiSummaryLoading" class="loading-tips">
+          正在思考中，请稍候...
+        </div>
+        <div v-else class="empty-tips">
+          未能生成总结。
+        </div>
+      </div>
+    </el-drawer>
+
     <!-- 分享对话框 -->
     <el-dialog
       v-model="shareDialogVisible"
@@ -190,8 +218,9 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
+import { AIService } from '@/services/ai.js'
 import { ElMessage } from 'element-plus'
-import { Edit, Download, Share, Expand, Fold, InfoFilled, ArrowLeft } from '@element-plus/icons-vue'
+import { Edit, Download, Share, Expand, Fold, InfoFilled, ArrowLeft, MagicStick } from '@element-plus/icons-vue'
 import { saveAs } from 'file-saver'
 
 // 在开发环境中引入调试工具
@@ -214,6 +243,10 @@ const shareDialogVisible = ref(false)
 const contentRef = ref(null)
 const pageRef = ref(null)
 const loading = ref(false)
+
+const aiSummaryDrawerVisible = ref(false)
+const aiSummaryContent = ref('')
+const aiSummaryLoading = ref(false)
 
 // 目录相关状态
 const tocCollapsed = ref(false)
@@ -267,6 +300,29 @@ const loadDocument = async () => {
     router.push('/')
   } finally {
     loading.value = false
+  }
+}
+
+const generateSummary = async () => {
+  if (!currentDoc.value || !currentDoc.value.content) {
+    ElMessage.warning('文档内容为空')
+    return
+  }
+  
+  aiSummaryDrawerVisible.value = true
+  aiSummaryContent.value = ''
+  aiSummaryLoading.value = true
+  
+  try {
+    const summary = await AIService.generateSummary(currentDoc.value.content, (chunk, fullText) => {
+      aiSummaryLoading.value = false
+      aiSummaryContent.value = fullText
+    })
+    aiSummaryContent.value = summary
+  } catch (err) {
+    ElMessage.error(err.message || 'AI 总结失败')
+  } finally {
+    aiSummaryLoading.value = false
   }
 }
 
@@ -325,7 +381,7 @@ const handleContentClick = async (e) => {
     const targetDoc = allDocs.find(d => d.title === docTitle && !d.isFolder)
 
     if (targetDoc) {
-      router.push(`/view/${targetDoc.id}`)
+      router.push(`/view/${encodeURIComponent(targetDoc.id)}`)
     } else {
       try {
         await ElMessageBox.confirm(
@@ -334,7 +390,7 @@ const handleContentClick = async (e) => {
           { confirmButtonText: '创建并前往', cancelButtonText: '取消', type: 'info' }
         )
         const newDoc = await documentsStore.createDocument(docTitle)
-        router.push(`/editor/${newDoc.id}`)
+        router.push(`/editor/${encodeURIComponent(newDoc.id)}`)
       } catch (err) {
         // 取消
       }
@@ -529,6 +585,14 @@ watch(() => currentDoc.value, () => {
     setTimeout(() => {
       addHeadingIds()
       markdownProcessor.renderMermaid()
+      if (contentRef.value) {
+        markdownProcessor.resolveLazyImages(
+          contentRef.value,
+          currentDoc.value.id,
+          documentsStore.workspaceMode,
+          documentsStore.localDirHandle
+        )
+      }
     }, 100)
   }
 }, { flush: 'post' })

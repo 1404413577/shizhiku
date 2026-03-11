@@ -94,14 +94,38 @@
     <div class="editor-container">
       <!-- 左侧编辑器 -->
       <div v-show="isEditing" class="editor-panel">
-        <textarea
-          ref="editorRef"
-          v-model="documentContent"
-          class="markdown-editor"
-          placeholder="开始编写您的 Markdown 内容..."
-          @input="handleContentChange"
-          @scroll="syncScroll"
+        <editor-content
+          v-if="editor"
+          :editor="editor"
+          class="tiptap-editor"
         />
+
+        <floating-menu v-if="editor" :editor="editor" :tippy-options="{ duration: 100 }" class="floating-menu">
+          <el-button-group>
+            <el-button size="small" @click="editor.chain().focus().toggleHeading({ level: 1 }).run()" :type="editor.isActive('heading', { level: 1 }) ? 'primary' : 'default'">H1</el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :type="editor.isActive('heading', { level: 2 }) ? 'primary' : 'default'">H2</el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleHeading({ level: 3 }).run()" :type="editor.isActive('heading', { level: 3 }) ? 'primary' : 'default'">H3</el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleBulletList().run()" :type="editor.isActive('bulletList') ? 'primary' : 'default'">
+               列表
+            </el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleTaskList().run()" :type="editor.isActive('taskList') ? 'primary' : 'default'">
+               待办
+            </el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleCodeBlock().run()" :type="editor.isActive('codeBlock') ? 'primary' : 'default'">
+               代码
+            </el-button>
+          </el-button-group>
+        </floating-menu>
+
+        <bubble-menu v-if="editor" :editor="editor" :tippy-options="{ duration: 100 }" class="bubble-menu">
+          <el-button-group>
+            <el-button size="small" @click="editor.chain().focus().toggleBold().run()" :type="editor.isActive('bold') ? 'primary' : 'default'"><b>B</b></el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleItalic().run()" :type="editor.isActive('italic') ? 'primary' : 'default'"><i>I</i></el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleStrike().run()" :type="editor.isActive('strike') ? 'primary' : 'default'"><s>S</s></el-button>
+            <el-button size="small" @click="editor.chain().focus().toggleCode().run()" :type="editor.isActive('code') ? 'primary' : 'default'"><code>&lt;&gt;</code></el-button>
+            <el-button size="small" @click="handleAIPolish" :loading="aiLoading" type="success" :icon="MagicStick">润色</el-button>
+          </el-button-group>
+        </bubble-menu>
       </div>
 
       <!-- 右侧预览区 -->
@@ -130,8 +154,20 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
+import { AIService } from '@/services/ai.js'
+import { ImageService } from '@/services/image.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Plus, Edit, Delete, Folder, ArrowRight, View, Reading, ArrowLeft } from '@element-plus/icons-vue'
+import { Document, Plus, Edit, Delete, Folder, ArrowRight, View, Reading, ArrowLeft, MagicStick } from '@element-plus/icons-vue'
+
+// Tiptap imports
+import { EditorContent, useEditor, mergeAttributes } from '@tiptap/vue-3'
+import { FloatingMenu, BubbleMenu } from '@tiptap/vue-3/menus'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import Image from '@tiptap/extension-image'
+import { Markdown } from 'tiptap-markdown'
 
 const route = useRoute()
 const router = useRouter()
@@ -159,11 +195,95 @@ const inputValue = ref('')
 const inputRef = ref(null)
 
 // 编辑器引用
-const editorRef = ref(null)
-const previewRef = ref(null) // This ref is no longer directly used for scroll, but kept for potential future use or if other parts rely on it.
+const previewRef = ref(null) 
+
+const aiLoading = ref(false)
+
+// 自定义支持异步加载的 Tiptap 图片扩展
+const LazyImage = Image.extend({
+  renderHTML({ HTMLAttributes }) {
+    const { src, ...rest } = HTMLAttributes
+    const isLazy = src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')
+    
+    return ['img', mergeAttributes(this.options.HTMLAttributes, rest, {
+      src: isLazy ? 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' : src,
+      'data-src': isLazy ? src : null,
+      class: isLazy ? 'zhishiku-lazy-image' : null
+    })]
+  }
+})
 
 // 自动保存定时器
 let autoSaveTimer = null
+
+// Tiptap 实例
+const editor = useEditor({
+  content: '',
+  extensions: [
+    StarterKit,
+    Markdown.configure({
+      html: true,
+      tightLists: true,
+      tightListClass: 'tight',
+      bulletListMarker: '-',
+      linkify: true,
+      breaks: true,
+    }),
+    Placeholder.configure({
+      placeholder: '开始编写您的内容... (输入 / 唤出快捷菜单)'
+    }),
+    TaskList,
+    TaskItem.configure({
+      nested: true
+    }),
+    LazyImage.configure({
+      inline: false,
+      allowBase64: true
+    })
+  ],
+  editorProps: {
+    handlePaste(view, event, slice) {
+      const items = event.clipboardData?.items
+      if (!items) return false
+      
+      let hasImage = false
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile()
+          if (file) {
+            hasImage = true
+            handleImageUpload(file)
+          }
+        }
+      }
+      return hasImage
+    }
+  },
+  onUpdate: ({ editor }) => {
+    // 同步到 documentContent
+    const markdown = editor.storage.markdown.getMarkdown()
+    if (documentContent.value !== markdown) {
+      documentContent.value = markdown
+      handleContentChange()
+    }
+    // 处理刚输入或粘帖进来的图片
+    nextTick(() => {
+      resolveEditorImages()
+    })
+  }
+})
+
+// 解析编辑器内的懒加载图片
+const resolveEditorImages = async () => {
+  if (editor.value && editor.value.view.dom) {
+    await markdownProcessor.resolveLazyImages(
+      editor.value.view.dom,
+      documentId.value,
+      documentsStore.workspaceMode,
+      documentsStore.localDirHandle
+    )
+  }
+}
 
 // 计算属性
 const renderedContent = computed(() => {
@@ -190,10 +310,48 @@ const loadDocument = async () => {
       documentTitle.value = doc.title
       documentContent.value = doc.content || ''
       documentTags.value = doc.tags || []
+      
+      // 更新 Tiptap 内容
+      if (editor.value) {
+        editor.value.commands.setContent(documentContent.value)
+        nextTick(() => {
+          resolveEditorImages()
+        })
+      }
     }
   } catch (error) {
     ElMessage.error('加载文档失败')
     router.push('/')
+  }
+}
+
+const handleAIPolish = async () => {
+  if (!editor.value) return
+  
+  const { empty, from, to } = editor.value.state.selection
+  if (empty) {
+    ElMessage.warning('请先选中文本')
+    return
+  }
+
+  const selectedText = editor.value.state.doc.textBetween(from, to, ' ')
+  if (!selectedText.trim()) return
+
+  aiLoading.value = true
+  try {
+    const polishedText = await AIService.polishText(
+      selectedText, 
+      '请润色并优化这段文字，使其更加通顺、专业，修正错别字。',
+      null // 这里暂时不使用流式输出，直接等待完整结果
+    )
+    
+    // 替换选中的文本
+    editor.value.chain().focus().insertContent(polishedText).run()
+    ElMessage.success('润色完成')
+  } catch (err) {
+    ElMessage.error(err.message || 'AI 润色失败')
+  } finally {
+    aiLoading.value = false
   }
 }
 
@@ -225,6 +383,42 @@ const saveDocument = async () => {
   }
 }
 
+const handleImageUpload = async (file) => {
+  try {
+    const defaultTitle = '未命名文档'
+    if (!documentId.value) {
+      if (!documentTitle.value || documentTitle.value === '新文档') {
+        documentTitle.value = defaultTitle
+      }
+      await saveDocument() // 强制保存当前文档以获取 ID
+      if (!documentId.value) return // 保存失败
+    }
+
+    const mode = documentsStore.workspaceMode
+    const handle = documentsStore.localDirHandle
+    
+    // 显示上传中提示 (这里简单用 ElMessage，也可做个局部 loading)
+    const uploadMessage = ElMessage({
+      message: '图片保存中...',
+      type: 'info',
+      duration: 0
+    })
+
+    const imagePath = await ImageService.saveImage(file, documentId.value, mode, handle)
+    uploadMessage.close()
+    
+    // 如果保存成功，插入到编辑器光标位置
+    if (editor.value && imagePath) {
+      const markdownImage = `\n![](${imagePath})\n`
+      editor.value.chain().focus().insertContent(markdownImage).run()
+      ElMessage.success('图片粘帖成功')
+    }
+  } catch (err) {
+    console.error(err)
+    ElMessage.error('图片保存失败: ' + err.message)
+  }
+}
+
 const handleContentChange = () => {
   // 清除之前的定时器
   if (autoSaveTimer) {
@@ -236,18 +430,34 @@ const handleContentChange = () => {
     saveDocument()
   }, 3000)
 
-  // 延迟渲染 Mermaid
+  // 延迟渲染 Mermaid 和解析图片
   setTimeout(() => {
     markdownProcessor.renderMermaid()
+    if (previewRef.value) {
+      markdownProcessor.resolveLazyImages(
+        previewRef.value,
+        documentId.value,
+        documentsStore.workspaceMode,
+        documentsStore.localDirHandle
+      )
+    }
   }, 100)
 }
 
 const toggleEditMode = () => {
   isEditing.value = !isEditing.value
   if (!isEditing.value) {
-    // 进入预览模式时，确保 Mermaid 渲染
+    // 进入预览模式时，确保渲染
     nextTick(() => {
       markdownProcessor.renderMermaid()
+      if (previewRef.value) {
+        markdownProcessor.resolveLazyImages(
+          previewRef.value,
+          documentId.value,
+          documentsStore.workspaceMode,
+          documentsStore.localDirHandle
+        )
+      }
     })
   }
 }
@@ -321,7 +531,7 @@ const handlePreviewClick = async (event) => {
     if (targetDoc) {
       // 存在，则保存当前进度并跳转过去阅读
       handleContentChange() // 手动保存当前
-      router.push(`/view/${targetDoc.id}`)
+      router.push(`/view/${encodeURIComponent(targetDoc.id)}`)
     } else {
       // 不存在，询问是否创建
       try {
@@ -332,7 +542,7 @@ const handlePreviewClick = async (event) => {
         )
         // 创建新文档
         const newDoc = await documentsStore.createDocument(docTitle)
-        router.push(`/editor/${newDoc.id}`)
+        router.push(`/editor/${encodeURIComponent(newDoc.id)}`)
       } catch (e) {
         // 用户取消创建
       }
@@ -471,16 +681,57 @@ watch(() => route.params.id, async (newId) => {
   flex-direction: column;
 }
 
-.markdown-editor {
+.tiptap-editor {
   flex: 1;
-  border: none;
+  padding: 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
+  font-size: var(--md-font-size, 16px);
+  line-height: var(--md-line-height, 1.6);
+}
+
+.tiptap-editor :deep(.ProseMirror) {
   outline: none;
-  padding: 20px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  background: #fafafa;
+  min-height: 100%;
+}
+
+.tiptap-editor :deep(.ProseMirror p.is-editor-empty:first-child::before) {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* 列表样式适配 */
+.tiptap-editor :deep(ul.tight) {
+  padding-left: 20px;
+}
+.tiptap-editor :deep(ul[data-type="taskList"]) {
+  list-style: none;
+  padding: 0;
+}
+.tiptap-editor :deep(ul[data-type="taskList"] li) {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+.tiptap-editor :deep(ul[data-type="taskList"] li > label) {
+  margin-right: 0.5rem;
+  user-select: none;
+}
+.tiptap-editor :deep(ul[data-type="taskList"] li > div) {
+  flex: 1;
+}
+
+/* 浮动菜单样式 */
+.floating-menu, .bubble-menu {
+  background: var(--el-bg-color);
+  padding: 4px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--el-border-color-light);
 }
 
 .preview-panel {

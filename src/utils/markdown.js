@@ -4,6 +4,8 @@ import mermaid from 'mermaid'
 import mathjax3 from 'markdown-it-mathjax3'
 import taskLists from 'markdown-it-task-lists'
 
+import { ImageService } from '@/services/image.js'
+
 // 初始化 Mermaid，配置为稍后手动触发，支持随黑白主题自动变化
 mermaid.initialize({
   startOnLoad: false,
@@ -74,6 +76,35 @@ const obsidianLinkPlugin = (md) => {
 md.use(mathjax3)
 md.use(taskLists, { enabled: true, label: true })
 md.use(obsidianLinkPlugin)
+
+// 劫持图片渲染，实现异步加载本地和IndexedDB图片
+const defaultImageRenderer = md.renderer.rules.image || function (tokens, idx, options, env, self) {
+  return self.renderToken(tokens, idx, options)
+}
+
+md.renderer.rules.image = function (tokens, idx, options, env, self) {
+  const token = tokens[idx]
+  const srcIndex = token.attrIndex('src')
+  
+  if (srcIndex >= 0) {
+    const src = token.attrs[srcIndex][1]
+    // 拦截非绝对外链的图片（包括相对路径和内部协议 zhishiku://）
+    if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('data:')) {
+      // 存储原始路径并清除 src 防止直接加载报错
+      token.attrPush(['data-src', src])
+      token.attrs[srcIndex][1] = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' // 透明占位图
+      
+      // 添加特殊 class
+      const classIndex = token.attrIndex('class')
+      if (classIndex < 0) {
+        token.attrPush(['class', 'zhishiku-lazy-image'])
+      } else {
+        token.attrs[classIndex][1] += ' zhishiku-lazy-image'
+      }
+    }
+  }
+  return defaultImageRenderer(tokens, idx, options, env, self)
+}
 
 // 可以在这里添加更多插件
 // md.use(markdownItAnchor, {
@@ -237,6 +268,31 @@ export class MarkdownProcessor {
     }
 
     return null
+  }
+
+  // 解析并异步加载 DOM 中的 zhishiku-lazy-image
+  async resolveLazyImages(containerElement, docId, workspaceMode, dirHandle) {
+    if (!containerElement) return
+
+    const lazyImages = containerElement.querySelectorAll('img.zhishiku-lazy-image')
+    
+    // 使用 Promise.all 并发处理
+    await Promise.all(Array.from(lazyImages).map(async (img) => {
+      const src = img.getAttribute('data-src')
+      if (!src || img.getAttribute('data-resolved') === 'true') return
+
+      try {
+        const objectUrl = await ImageService.getImageUrl(src, docId, workspaceMode, dirHandle)
+        // console.log(`[LazyImage] Resolved ${src} -> ${objectUrl}`)
+        if (objectUrl) {
+          img.src = objectUrl
+          img.setAttribute('data-resolved', 'true')
+        }
+      } catch (err) {
+        console.error('Failed to resolve lazy image:', src, err)
+        // 渲染失败时也可以考虑给个错误占位图
+      }
+    }))
   }
 }
 

@@ -31,6 +31,36 @@
         </div>
       </div>
 
+
+
+      <!-- 工作区切换 -->
+      <div class="workspace-mode-switcher">
+        <template v-if="documentsStore.workspaceMode === 'indexeddb'">
+          <el-button @click="connectWorkspace" type="primary" plain size="small" style="width: 100%;">
+            <el-icon><FolderOpened /></el-icon> 挂载本地文件夹
+          </el-button>
+        </template>
+        <template v-else>
+          <div class="workspace-local-active">
+            <span class="workspace-label"><el-icon><FolderChecked /></el-icon> 已挂载本地目录</span>
+            <el-button @click="disconnectWorkspace" type="danger" text size="small">
+              断开
+            </el-button>
+          </div>
+        </template>
+      </div>
+
+      <!-- 当本地工作区需要权限恢复时显示提示 -->
+      <div v-if="showReconnectPrompt" class="workspace-reconnect-prompt">
+        <el-alert
+          title="需要恢复本地文件夹访问权限"
+          type="warning"
+          :closable="false"
+        >
+          <el-button @click="reconnectWorkspace" size="small" type="primary">重新授权</el-button>
+        </el-alert>
+      </div>
+
       <!-- 搜索框 -->
       <div class="search-box">
         <el-input
@@ -41,7 +71,6 @@
           clearable
         />
       </div>
-
       <!-- 标签过滤 -->
       <div class="tag-filter" v-if="allTags.length > 0">
         <el-select
@@ -115,9 +144,43 @@
 
         <!-- 用户文档区域 (树形目录) -->
         <div class="document-section">
-          <div class="section-header">
+          <div class="section-header batch-mode-header" v-if="isBatchMode">
+            <el-checkbox
+              v-model="allSelected"
+              :indeterminate="isIndeterminate"
+              @change="handleSelectAllChange"
+            >
+              全选
+            </el-checkbox>
+            <div class="section-actions">
+              <el-button
+                size="small"
+                type="danger"
+                text
+                @click="handleBatchDelete"
+              >
+                删除选中
+              </el-button>
+              <el-button
+                size="small"
+                text
+                @click="isBatchMode = false"
+              >
+                取消
+              </el-button>
+            </div>
+          </div>
+          <div class="section-header" v-else>
             <span class="section-title">我的文档</span>
             <div class="section-actions">
+              <el-button
+                size="small"
+                text
+                @click="isBatchMode = true"
+                title="批量管理"
+              >
+                批量
+              </el-button>
               <el-button
                 size="small"
                 text
@@ -133,9 +196,11 @@
             :data="userDocumentTree"
             node-key="id"
             draggable
+            :show-checkbox="isBatchMode"
             :allow-drop="allowDrop"
             @node-drop="handleNodeDrop"
             @node-click="handleNodeClick"
+            @check="handleTreeCheck"
             :expand-on-click-node="false"
             :highlight-current="true"
             class="document-tree"
@@ -155,7 +220,7 @@
                   <el-icon v-if="data.isPinned" class="badge-icon pin-badge" title="已置顶"><Top /></el-icon>
                   <el-icon v-if="data.isFavorited" class="badge-icon star-badge" title="已收藏"><StarFilled /></el-icon>
                 </div>
-                <div class="node-actions" @click.stop>
+                <div class="node-actions" @click.stop v-if="!isBatchMode">
                   <el-button
                     size="small"
                     text
@@ -262,6 +327,36 @@
           </div>
         </div>
 
+
+
+        <!-- 移动端工作区切换 -->
+        <div class="workspace-mode-switcher">
+          <template v-if="documentsStore.workspaceMode === 'indexeddb'">
+            <el-button @click="connectWorkspace" type="primary" plain size="small" style="width: 100%;">
+              <el-icon><FolderOpened /></el-icon> 挂载本地文件夹
+            </el-button>
+          </template>
+          <template v-else>
+            <div class="workspace-local-active">
+              <span class="workspace-label"><el-icon><FolderChecked /></el-icon> 已挂载本地目录</span>
+              <el-button @click="disconnectWorkspace" type="danger" text size="small">
+                断开
+              </el-button>
+            </div>
+          </template>
+        </div>
+
+        <!-- 当前工作区需要恢复权限 -->
+        <div v-if="showReconnectPrompt" class="workspace-reconnect-prompt">
+          <el-alert
+            title="需要恢复本地文件夹访问权限"
+            type="warning"
+            :closable="false"
+          >
+            <el-button @click="reconnectWorkspace" size="small" type="primary">重新授权</el-button>
+          </el-alert>
+        </div>
+
         <!-- 搜索框 -->
         <div class="search-box">
           <el-input
@@ -272,7 +367,6 @@
             clearable
           />
         </div>
-
         <!-- 标签过滤 -->
         <div class="tag-filter" v-if="allTags.length > 0">
           <el-select
@@ -460,8 +554,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
+import { FSService } from '@/services/fs.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting, FolderOpened, FolderChecked } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
 
@@ -488,6 +583,10 @@ const docTreeRef = ref(null)
 const searchQuery = ref('')
 const selectedTags = ref([])
 const drawerVisible = ref(false)
+const showReconnectPrompt = ref(false)
+const isBatchMode = ref(false)
+const allSelected = ref(false)
+const isIndeterminate = ref(false)
 
 // 当前激活的导航项
 const activeNav = computed(() => {
@@ -562,12 +661,142 @@ const handleSearch = (query) => {
   documentsStore.searchDocuments(query)
 }
 
+const toggleBatchMode = () => {
+  isBatchMode.value = !isBatchMode.value
+  if (!isBatchMode.value && docTreeRef.value) {
+    docTreeRef.value.setCheckedKeys([]) // Clear selections when exiting batch mode
+    allSelected.value = false
+    isIndeterminate.value = false
+  }
+}
+
+const handleSelectAllChange = (val) => {
+  if (!docTreeRef.value) return
+  
+  if (val) {
+    // 获取所有节点的 ID
+    const getAllIds = (nodes) => {
+      let ids = []
+      nodes.forEach(node => {
+        ids.push(node.id)
+        if (node.children && node.children.length > 0) {
+          ids = ids.concat(getAllIds(node.children))
+        }
+      })
+      return ids
+    }
+    const allIds = getAllIds(userDocumentTree.value)
+    docTreeRef.value.setCheckedKeys(allIds)
+  } else {
+    docTreeRef.value.setCheckedKeys([])
+  }
+  isIndeterminate.value = false
+}
+
+const handleTreeCheck = () => {
+  if (!docTreeRef.value) return
+  
+  const checkedCount = docTreeRef.value.getCheckedKeys().length
+  const allNodesCount = (nodes) => {
+    let count = 0
+    nodes.forEach(node => {
+      count++
+      if (node.children && node.children.length > 0) {
+        count += allNodesCount(node.children)
+      }
+    })
+    return count
+  }
+  
+  const total = allNodesCount(userDocumentTree.value)
+  allSelected.value = checkedCount === total && total > 0
+  isIndeterminate.value = checkedCount > 0 && checkedCount < total
+}
+
+const handleBatchDelete = async () => {
+  if (!docTreeRef.value) return
+  
+  const checkedKeys = docTreeRef.value.getCheckedKeys()
+  const validIds = checkedKeys.filter(id => id && id !== 'undefined')
+
+  if (validIds.length === 0) {
+    ElMessage.warning('请先选择要删除的项目')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${validIds.length} 个项目吗？该操作不可撤销。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+
+    await documentsStore.deleteDocuments(validIds)
+    ElMessage.success(`成功删除 ${validIds.length} 个项目`)
+    isBatchMode.value = false
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除过程中发生错误')
+    }
+  }
+}
+
 // 处理顶部导航选择
 const handleNavSelect = (index) => {
   if (route.path !== index) {
     router.push(index)
   }
 }
+
+// 工作区切换
+const connectWorkspace = async () => {
+  await documentsStore.connectLocalWorkspace()
+  if (documentsStore.workspaceMode === 'local') {
+    showReconnectPrompt.value = false
+    router.push('/') // 挂载成功后回到首页
+  }
+}
+
+const disconnectWorkspace = async () => {
+  await ElMessageBox.confirm('确定要断开本地文件夹的连接吗？系统将切回到浏览器内建存储。', '断开连接')
+  await documentsStore.switchToIndexedDB()
+  router.push('/')
+}
+
+const reconnectWorkspace = async () => {
+  try {
+    const handle = await FSService.loadStoredHandle()
+    if (handle) {
+      if (await FSService.verifyPermission(handle)) {
+        documentsStore.localDirHandle = handle
+        documentsStore.workspaceMode = 'local'
+        await documentsStore.loadDocuments()
+        showReconnectPrompt.value = false
+        ElMessage.success('已恢复本地文件夹访问权限')
+        return
+      }
+    }
+  } catch (e) {
+    console.error(e)
+  }
+  ElMessage.error('恢复失败，请重新尝试挂载或检查浏览器权限')
+}
+
+// 尝试自动恢复
+onMounted(async () => {
+  const storeHandle = await FSService.loadStoredHandle()
+  if (storeHandle) {
+    // 首次加载因为浏览器安全策略无法静默请求 user gesture 权限，
+    // 所以如果是我们之前挂载了 handle 的，显示提示让用户主动点一下
+    showReconnectPrompt.value = true
+  }
+})
 
 // 树组件节点操作相关方法
 const handleNodeClick = (data, node) => {
@@ -645,7 +874,7 @@ const createNewDocument = async (parentId = null) => {
     })
 
     const doc = await documentsStore.createDocument(title, '', parentId)
-    router.push(`/editor/${doc.id}`)
+    router.push(`/editor/${encodeURIComponent(doc.id)}`)
   } catch (error) {
     if (error !== 'cancel') {
       ElMessage.error('创建文档失败')
@@ -676,7 +905,7 @@ const selectDocument = async (doc) => {
     // 先更新当前文档状态
     await documentsStore.getDocument(doc.id)
     // 导航到查看页面
-    await router.push(`/view/${doc.id}`)
+    await router.push(`/view/${encodeURIComponent(doc.id)}`)
     // 移动端关闭侧边栏抽屉
     drawerVisible.value = false
   } catch (error) {
@@ -686,7 +915,7 @@ const selectDocument = async (doc) => {
 }
 
 const editDocument = (doc) => {
-  router.push(`/editor/${doc.id}`)
+  router.push(`/editor/${encodeURIComponent(doc.id)}`)
 }
 
 const deleteItem = async (data) => {
@@ -773,6 +1002,36 @@ onMounted(async () => {
 .sidebar-header h2 {
   margin: 0;
   color: var(--el-text-color-primary);
+}
+
+.workspace-mode-switcher {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--el-border-color);
+  background-color: var(--el-fill-color-light);
+}
+
+.workspace-local-active {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--el-color-success-light-9);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--el-color-success-light-5);
+}
+
+.workspace-label {
+  font-size: 13px;
+  color: var(--el-color-success);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: bold;
+}
+
+.workspace-reconnect-prompt {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--el-border-color);
 }
 
 .search-box {
@@ -1013,6 +1272,21 @@ onMounted(async () => {
   color: var(--el-text-color-regular);
 }
 
+.batch-mode-header {
+  background: var(--el-color-primary-light-9);
+  border: 1px dashed var(--el-color-primary);
+}
+
+.batch-mode-header :deep(.el-checkbox) {
+  height: auto;
+  margin-right: 0;
+}
+
+.batch-mode-header :deep(.el-checkbox__label) {
+  font-size: 12px;
+  font-weight: bold;
+}
+
 .section-title {
   flex: 1;
 }
@@ -1020,6 +1294,16 @@ onMounted(async () => {
 .section-count {
   color: var(--el-text-color-secondary);
   font-weight: normal;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.section-actions .el-button--danger {
+  font-weight: bold;
 }
 
 .preset-doc {
