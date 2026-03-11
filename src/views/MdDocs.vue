@@ -1,10 +1,10 @@
 <template>
-  <div class="md-docs">
+  <div class="md-docs" :class="{ 'is-mobile': isMobile }">
     <!-- 阅读进度条 -->
     <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
     
     <!-- 左侧文档列表 -->
-    <aside class="sidebar">
+    <aside class="sidebar" v-show="!isMobile || mobileView === 'list'">
       <div class="sidebar-header">
         <h3 class="sidebar-title">
           <el-icon><Document /></el-icon>
@@ -54,7 +54,7 @@
     </aside>
 
     <!-- 右侧内容区域 -->
-    <main class="content">
+    <main class="content" v-show="!isMobile || mobileView === 'content'">
       <div v-if="current" class="content-wrapper">
         <div class="content-header">
           <div class="content-title">
@@ -103,8 +103,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useWindowSize } from '@vueuse/core'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh, ArrowLeft } from '@element-plus/icons-vue'
 import { markdownProcessor } from '@/utils/markdown.js'
@@ -112,10 +113,22 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDocumentsStore } from '@/stores/documents.js'
 
 const router = useRouter()
+const { width } = useWindowSize()
 
-const canGoBack = computed(() => window.history.length > 1)
+const isMobile = computed(() => width.value <= 768)
+const mobileView = ref('list') // 'list' | 'content'
+
+const canGoBack = computed(() => {
+  if (isMobile.value && mobileView.value === 'content') return true
+  return window.history.length > 1
+})
+
 const goBack = () => {
-  router.back()
+  if (isMobile.value && mobileView.value === 'content') {
+    mobileView.value = 'list'
+  } else {
+    router.back()
+  }
 }
 
 // SEO 配置
@@ -150,6 +163,10 @@ function onSelect(key) {
   if (found) {
     current.value = found.comp
     activeKey.value = key
+    if (isMobile.value) {
+      mobileView.value = 'content'
+      window.scrollTo(0, 0)
+    }
   }
 }
 
@@ -537,22 +554,21 @@ watch(() => current.value, () => {
 
 @media (max-width: 768px) {
   .md-docs {
-    display: flex;
-    flex-direction: column;
-    height: auto;
+    display: block;
+    height: 100%;
   }
 
   .sidebar {
     border-right: none;
-    border-bottom: 1px solid var(--el-border-color);
-    flex: none;
-    height: 300px; /* 固定高度以启用内部滚动 */
-    max-height: 40vh;
+    height: 100%;
+    max-height: none;
   }
 
   .content {
-    flex: 1;
-    overflow: visible;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   .content-header {
