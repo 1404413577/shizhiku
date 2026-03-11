@@ -42,9 +42,38 @@ const md = new MarkdownIt({
   }
 })
 
+// 自定义 Obsidian 双链插件 [[WikiLink]]
+const obsidianLinkPlugin = (md) => {
+  md.inline.ruler.before('link', 'obsidian_link', (state, silent) => {
+    const max = state.posMax
+    const start = state.pos
+
+    if (state.src.charCodeAt(start) !== 0x5b /* [ */) return false
+    if (start + 1 >= max || state.src.charCodeAt(start + 1) !== 0x5b /* [ */) return false
+
+    // 寻找 ]]
+    const matchStart = start + 2
+    const matchEnd = state.src.indexOf(']]', matchStart)
+
+    if (matchEnd === -1) return false
+
+    if (!silent) {
+      const linkText = state.src.slice(matchStart, matchEnd).trim()
+      
+      const token = state.push('html_inline', '', 0)
+      // 使用 data-doc-title 作为后续 Vue 事件代理查询文档的依据
+      token.content = `<a href="javascript:void(0)" class="obsidian-link" data-doc-title="${md.utils.escapeHtml(linkText)}">${md.utils.escapeHtml(linkText)}</a>`
+    }
+
+    state.pos = matchEnd + 2
+    return true
+  })
+}
+
 // 注册插件
 md.use(mathjax3)
 md.use(taskLists, { enabled: true, label: true })
+md.use(obsidianLinkPlugin)
 
 // 可以在这里添加更多插件
 // md.use(markdownItAnchor, {

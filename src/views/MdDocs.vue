@@ -95,10 +95,14 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
 import { markdownProcessor } from '@/utils/markdown.js'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useDocumentsStore } from '@/stores/documents.js'
+
+const router = useRouter()
 
 // SEO 配置
 usePageSEO({
@@ -165,14 +169,41 @@ function handleScroll({ scrollTop }) {
   readingProgress.value = Math.min(100, Math.max(0, percent))
 }
 
-function handleContentClick(event) {
+function handleContentClick(asyncEvent) {
   // 处理代码复制
-  markdownProcessor.handleCopyClick(event)
+  markdownProcessor.handleCopyClick(asyncEvent)
+
+  const target = asyncEvent.target
+
+  // 处理双向链接点击
+  if (target && target.tagName === 'A' && target.classList.contains('obsidian-link')) {
+    asyncEvent.preventDefault()
+    const docTitle = target.getAttribute('data-doc-title')
+    if (!docTitle) return
+
+    // 获取所有文档
+    const store = useDocumentsStore()
+    const allDocs = store.documents
+    const targetDoc = allDocs.find(d => d.title === docTitle && !d.isFolder)
+
+    if (targetDoc) {
+      router.push(`/view/${targetDoc.id}`)
+    } else {
+      ElMessageBox.confirm(
+        `文档 "[[${docTitle}]]" 在动态知识库中尚不存在，是否立即创建并跳转？\n（注：该操作会在右侧知识库中创建新文件）`,
+        '发现新链接',
+        { confirmButtonText: '创建', cancelButtonText: '取消', type: 'info' }
+      ).then(async () => {
+        const newDoc = await store.createDocument(docTitle)
+        router.push(`/editor/${newDoc.id}`)
+      }).catch(() => {})
+    }
+    return
+  }
 
   // 处理静态文档中的复选框点击
-  const target = event.target
   if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {
-    event.preventDefault()
+    asyncEvent.preventDefault()
     // 强制还原勾选状态
     target.checked = !target.checked
     ElMessage.warning('静态文档的待办状态无法持久保存')

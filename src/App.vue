@@ -136,6 +136,21 @@ body {
   cursor: pointer;
 }
 
+/* Obsidian 双向链接样式 */
+.markdown-body :deep(.obsidian-link) {
+  color: var(--el-color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0 2px;
+  border-bottom: 1px dashed var(--el-color-primary-light-3);
+  transition: all 0.2s;
+}
+
+.markdown-body :deep(.obsidian-link:hover) {
+  background-color: var(--el-color-primary-light-9);
+  border-bottom: 1px solid var(--el-color-primary);
+}
+
 /* 响应式设计 */
 .code-block-wrapper {
   position: relative;

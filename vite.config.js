@@ -59,6 +59,26 @@ export default defineConfig({
         
         md.use(mathjax3)
         md.use(taskLists, { enabled: true, label: true })
+
+        // 自定义 Obsidian 双链插件 [[WikiLink]] 用在静态编译期
+        md.use((md) => {
+          md.inline.ruler.before('link', 'obsidian_link', (state, silent) => {
+            const max = state.posMax
+            const start = state.pos
+            if (state.src.charCodeAt(start) !== 0x5b) return false
+            if (start + 1 >= max || state.src.charCodeAt(start + 1) !== 0x5b) return false
+            const matchStart = start + 2
+            const matchEnd = state.src.indexOf(']]', matchStart)
+            if (matchEnd === -1) return false
+            if (!silent) {
+              const linkText = state.src.slice(matchStart, matchEnd).trim()
+              const token = state.push('html_inline', '', 0)
+              token.content = `<a href="javascript:void(0)" class="obsidian-link" data-doc-title="${md.utils.escapeHtml(linkText)}">${md.utils.escapeHtml(linkText)}</a>`
+            }
+            state.pos = matchEnd + 2
+            return true
+          })
+        })
       }
     }),
     AutoImport({

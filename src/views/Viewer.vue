@@ -293,11 +293,38 @@ const downloadMarkdown = () => {
   shareDialogVisible.value = false
 }
 
-// 处理文档内容点击（事件代理用于代码复制等）
+// 处理内容区域点击（如代码复制、复选框同步、双向链接）
 const handleContentClick = async (e) => {
   markdownProcessor.handleCopyClick(e)
 
   const target = e.target
+
+  // 处理双向链接点击
+  if (target && target.tagName === 'A' && target.classList.contains('obsidian-link')) {
+    e.preventDefault()
+    const docTitle = target.getAttribute('data-doc-title')
+    if (!docTitle) return
+
+    const allDocs = documentsStore.documents
+    const targetDoc = allDocs.find(d => d.title === docTitle && !d.isFolder)
+
+    if (targetDoc) {
+      router.push(`/view/${targetDoc.id}`)
+    } else {
+      try {
+        await ElMessageBox.confirm(
+          `文档 "[[${docTitle}]]" 尚不存在，是否立即创建并跳转？`,
+          '发现新链接',
+          { confirmButtonText: '创建并前往', cancelButtonText: '取消', type: 'info' }
+        )
+        const newDoc = await documentsStore.createDocument(docTitle)
+        router.push(`/editor/${newDoc.id}`)
+      } catch (err) {
+        // 取消
+      }
+    }
+    return
+  }
   
   // 处理待办事项复选框点击
   if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {

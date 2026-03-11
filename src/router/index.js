@@ -36,6 +36,12 @@ const routes = [
     name: 'About',
     component: () => import('@/views/About.vue'),
     meta: { title: '关于我' }
+  },
+  {
+    path: '/graph',
+    name: 'GraphView',
+    component: () => import('@/views/GraphView.vue'),
+    meta: { title: '关系图谱' }
   }
 ]
 

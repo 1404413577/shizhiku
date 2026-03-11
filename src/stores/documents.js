@@ -62,11 +62,19 @@ export const useDocumentsStore = defineStore('documents', {
         }
       })
 
-      // 对结果进行排序，文件夹优先，然后按时间倒序或按 title 排序
+      // 对结果进行排序，置顶优先，然后文件夹优先，最后按时间倒序或按 title 排序
       const sortTree = (nodes) => {
         nodes.sort((a, b) => {
+          // 1. 比较置顶状态
+          const aPinned = a.isPinned ? 1 : 0
+          const bPinned = b.isPinned ? 1 : 0
+          if (aPinned !== bPinned) return bPinned - aPinned
+          
+          // 2. 比较文件夹状态
           if (a.isFolder && !b.isFolder) return -1
           if (!a.isFolder && b.isFolder) return 1
+          
+          // 3. 最后按更新时间倒序排序
           return new Date(b.updatedAt) - new Date(a.updatedAt)
         })
         nodes.forEach(node => sortTree(node.children))
@@ -238,6 +246,33 @@ export const useDocumentsStore = defineStore('documents', {
         await this.saveDocument(id, { parentId: doc.parentId })
       } catch (error) {
         console.error('移动文档失败:', error)
+        throw error
+      }
+    },
+
+    // 另外写专门的切换置顶和收藏操作
+    async togglePin(id) {
+      try {
+        const doc = this.documents.find(d => d.id === id)
+        if (!doc) throw new Error('Document not found')
+        
+        doc.isPinned = !doc.isPinned
+        await this.saveDocument(id, { isPinned: doc.isPinned })
+      } catch (error) {
+        console.error('切换置顶状态失败:', error)
+        throw error
+      }
+    },
+    
+    async toggleFavorite(id) {
+      try {
+        const doc = this.documents.find(d => d.id === id)
+        if (!doc) throw new Error('Document not found')
+
+        doc.isFavorited = !doc.isFavorited
+        await this.saveDocument(id, { isFavorited: doc.isFavorited })
+      } catch (error) {
+        console.error('切换收藏状态失败:', error)
         throw error
       }
     },

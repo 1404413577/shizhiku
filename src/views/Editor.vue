@@ -121,8 +121,8 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
-import { ElMessage } from 'element-plus'
-import { Document, View, Reading, Plus, Edit } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Document, Plus, Edit, Delete, Folder, ArrowRight, View, Reading } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -287,13 +287,46 @@ const handlePreviewScroll = ({ scrollTop }) => {
   readingProgress.value = Math.min(100, Math.max(0, percent))
 }
 
-// 处理预览区点击（事件代理用于代码复制等）
-const handlePreviewClick = (event) => {
+// 处理预览区点击（事件代理用于代码复制、复选框同步、双向链接等）
+const handlePreviewClick = async (event) => {
   // 处理代码复制
   markdownProcessor.handleCopyClick(event)
 
-  // 处理待办事项复选框点击
   const target = event.target
+
+  // 处理双向链接点击
+  if (target && target.tagName === 'A' && target.classList.contains('obsidian-link')) {
+    event.preventDefault()
+    const docTitle = target.getAttribute('data-doc-title')
+    if (!docTitle) return
+
+    // 在 store 中按标题查找文档（模糊或精确匹配均可，这里用精确匹配）
+    const allDocs = documentsStore.documents
+    const targetDoc = allDocs.find(d => d.title === docTitle && !d.isFolder)
+
+    if (targetDoc) {
+      // 存在，则保存当前进度并跳转过去阅读
+      handleContentChange() // 手动保存当前
+      router.push(`/view/${targetDoc.id}`)
+    } else {
+      // 不存在，询问是否创建
+      try {
+        await ElMessageBox.confirm(
+          `文档 "[[${docTitle}]]" 尚不存在，是否立即创建？`,
+          '发现新链接',
+          { confirmButtonText: '创建', cancelButtonText: '取消', type: 'info' }
+        )
+        // 创建新文档
+        const newDoc = await documentsStore.createDocument(docTitle)
+        router.push(`/editor/${newDoc.id}`)
+      } catch (e) {
+        // 用户取消创建
+      }
+    }
+    return
+  }
+
+  // 处理待办事项复选框点击
   if (target && target.tagName === 'INPUT' && target.type === 'checkbox' && target.classList.contains('task-list-item-checkbox')) {
     const newMarkdown = markdownProcessor.syncCheckboxUpdate(documentContent.value, target)
     if (newMarkdown !== null) {

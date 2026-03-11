@@ -109,7 +109,9 @@ export class DocumentStorage {
       isPreset: 'boolean',
       originalPath: 'string',
       parentId: 'string',
-      isFolder: 'boolean'
+      isFolder: 'boolean',
+      isPinned: 'boolean',
+      isFavorited: 'boolean'
     }
 
     for (const [key, expectedType] of Object.entries(allowedProps)) {
@@ -156,7 +158,9 @@ export class DocumentStorage {
       isPreset: Boolean(document.isPreset),
       originalPath: String(document.originalPath || ''),
       parentId: document.parentId ? String(document.parentId) : null,
-      isFolder: Boolean(document.isFolder)
+      isFolder: Boolean(document.isFolder),
+      isPinned: Boolean(document.isPinned),
+      isFavorited: Boolean(document.isFavorited)
     }
   }
 
@@ -175,7 +179,9 @@ export class DocumentStorage {
       updatedAt: new Date().toISOString(),
       tags: [],
       parentId: null,
-      isFolder: false
+      isFolder: false,
+      isPinned: false,
+      isFavorited: false
     }
     
     return await this.saveDocument(id, document)
@@ -191,7 +197,9 @@ export class DocumentStorage {
       updatedAt: new Date().toISOString(),
       tags: [],
       parentId,
-      isFolder: true
+      isFolder: true,
+      isPinned: false,
+      isFavorited: false
     }
     
     return await this.saveDocument(id, folder)

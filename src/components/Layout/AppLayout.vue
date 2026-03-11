@@ -4,14 +4,22 @@
     <el-aside width="300px" class="sidebar hidden-xs-only">
       <div class="sidebar-header">
         <h2>知识库</h2>
-        <el-button
-          type="primary"
-          @click="createNewDocument"
-          :icon="Plus"
-          round
-        >
-          新建文档
-        </el-button>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <el-button
+            @click="router.push('/graph')"
+            :icon="Share"
+            circle
+            title="查看关系图谱"
+          />
+          <el-button
+            type="primary"
+            @click="createNewDocument(null)"
+            :icon="Plus"
+            round
+          >
+            新建文档
+          </el-button>
+        </div>
       </div>
 
       <!-- 搜索框 -->
@@ -134,8 +142,29 @@
                     <Document v-else />
                   </el-icon>
                   <span class="title-text">{{ data.title }}</span>
+                  <!-- 置顶和收藏的小徽标 -->
+                  <el-icon v-if="data.isPinned" class="badge-icon pin-badge" title="已置顶"><Top /></el-icon>
+                  <el-icon v-if="data.isFavorited" class="badge-icon star-badge" title="已收藏"><StarFilled /></el-icon>
                 </div>
                 <div class="node-actions" @click.stop>
+                  <el-button
+                    size="small"
+                    text
+                    @click="togglePin(data)"
+                    :icon="Top"
+                    :title="data.isPinned ? '取消置顶' : '置顶'"
+                    :type="data.isPinned ? 'primary' : ''"
+                    circle
+                  />
+                  <el-button
+                    size="small"
+                    text
+                    @click="toggleFavorite(data)"
+                    :icon="data.isFavorited ? StarFilled : Star"
+                    :title="data.isFavorited ? '取消收藏' : '收藏'"
+                    :type="data.isFavorited ? 'warning' : ''"
+                    circle
+                  />
                   <template v-if="data.isFolder">
                     <el-button
                       size="small"
@@ -197,14 +226,22 @@
       <div class="sidebar mobile-sidebar">
         <div class="sidebar-header">
           <h2>知识库</h2>
-          <el-button
-            type="primary"
-            @click="createNewDocument"
-            :icon="Plus"
-            round
-          >
-            新建文档
-          </el-button>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <el-button
+              @click="router.push('/graph')"
+              :icon="Share"
+              circle
+              title="查看关系图谱"
+            />
+            <el-button
+              type="primary"
+              @click="createNewDocument(null)"
+              :icon="Plus"
+              round
+            >
+              新建文档
+            </el-button>
+          </div>
         </div>
 
         <!-- 搜索框 -->
@@ -406,7 +443,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
 
@@ -559,6 +596,24 @@ const handleNodeDrop = async (draggingNode, dropNode, dropType, ev) => {
     ElMessage.error(err.message || '移动失败')
     // 刷新数据以还原UI
     await documentsStore.loadDocuments()
+  }
+}
+
+const togglePin = async (data) => {
+  try {
+    await documentsStore.togglePin(data.id)
+    ElMessage.success(data.isPinned ? '取消置顶成功' : '置顶成功')
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
+}
+
+const toggleFavorite = async (data) => {
+  try {
+    await documentsStore.toggleFavorite(data.id)
+    ElMessage.success(data.isFavorited ? '取消收藏成功' : '收藏成功')
+  } catch (error) {
+    ElMessage.error('操作失败')
   }
 }
 
@@ -840,6 +895,20 @@ onMounted(async () => {
 /* 覆盖 el-tree 默认样式以适应右侧按钮 */
 .document-list :deep(.el-tree-node__content) {
   height: 36px;
+}
+
+/* 节点徽章样式 (置顶, 收藏的小图标) */
+.badge-icon {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.pin-badge {
+  color: var(--el-color-primary);
+}
+
+.star-badge {
+  color: #e6a23c;
 }
 
 .sidebar-footer {
