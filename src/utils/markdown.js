@@ -7,15 +7,24 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
   highlight: function (str, lang) {
+    const rawCode = md.utils.escapeHtml(str)
+    let highlightedCode = rawCode
+
     if (lang && hljs.getLanguage(lang)) {
       try {
-        return '<pre class="hljs"><code>' +
-               hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
-               '</code></pre>'
+        highlightedCode = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value
       } catch (__) {}
     }
-
-    return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>'
+    
+    const langText = lang ? lang.toUpperCase() : 'TEXT'
+    
+    return `<div class="code-block-wrapper">
+      <div class="code-block-header">
+        <span class="code-lang">${langText}</span>
+        <button class="code-copy-btn" data-clipboard-text="${encodeURIComponent(str)}" title="复制代码">复制</button>
+      </div>
+      <pre class="hljs"><code>${highlightedCode}</code></pre>
+    </div>`
   }
 })
 
@@ -105,6 +114,27 @@ export class MarkdownProcessor {
     return text.length > maxLength 
       ? text.substring(0, maxLength) + '...'
       : text
+  }
+  // 获取复制事件处理方法
+  handleCopyClick(event) {
+    if (event.target && event.target.classList.contains('code-copy-btn')) {
+      const btn = event.target
+      let text = btn.getAttribute('data-clipboard-text')
+      if (text) {
+        text = decodeURIComponent(text)
+        navigator.clipboard.writeText(text).then(() => {
+          const originalText = btn.innerText
+          btn.innerText = '已复制'
+          btn.classList.add('copied')
+          setTimeout(() => {
+            btn.innerText = originalText
+            btn.classList.remove('copied')
+          }, 2000)
+        }).catch(err => {
+          console.error('复制失败:', err)
+        })
+      }
+    }
   }
 }
 

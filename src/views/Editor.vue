@@ -97,6 +97,7 @@
           ref="previewRef"
           class="markdown-preview"
           v-html="renderedContent"
+          @click="handlePreviewClick"
           @scroll="syncPreviewScroll"
         />
       </div>
@@ -263,6 +264,11 @@ const syncPreviewScroll = () => {
 
 const formatTime = (date) => {
   return date.toLocaleTimeString('zh-CN')
+}
+
+// 处理预览区点击（事件代理用于代码复制等）
+const handlePreviewClick = (event) => {
+  markdownProcessor.handleCopyClick(event)
 }
 
 // 键盘快捷键

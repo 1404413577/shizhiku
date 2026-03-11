@@ -125,6 +125,7 @@
           v-else-if="currentDoc"
           class="markdown-content"
           v-html="renderedContent"
+          @click="handleContentClick"
           ref="contentRef"
         />
 
@@ -283,6 +284,11 @@ const copyMarkdown = async () => {
 const downloadMarkdown = () => {
   exportDocument()
   shareDialogVisible.value = false
+}
+
+// 处理文档内容点击（事件代理用于代码复制等）
+const handleContentClick = (event) => {
+  markdownProcessor.handleCopyClick(event)
 }
 
 // 获取最近的可滚动容器（垂直方向）

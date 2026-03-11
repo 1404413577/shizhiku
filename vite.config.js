@@ -5,6 +5,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { seoPlugin } from './vite-plugins/seo-plugin.js'
+import hljs from 'highlight.js'
 // docs-loader 在运行时可能依赖文件系统，使用按需导入以避免在 Vite 配置打包时出错
 let docsLoader
 let createDevDocsLoader
@@ -23,7 +24,33 @@ export default defineConfig({
   plugins: [
     vue({ include: [/\.vue$/, /\.md$/] }),
     Markdown({
-      // 这里可以按需配置 markdown-it、代码高亮等
+      markdownItOptions: {
+        html: true,
+        linkify: true,
+        typographer: true,
+      },
+      markdownItSetup(md) {
+        md.options.highlight = function (str, lang) {
+          const rawCode = md.utils.escapeHtml(str)
+          let highlightedCode = rawCode
+
+          if (lang && hljs.getLanguage(lang)) {
+            try {
+              highlightedCode = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value
+            } catch (__) {}
+          }
+          
+          const langText = lang ? lang.toUpperCase() : 'TEXT'
+          
+          return `<div class="code-block-wrapper">
+            <div class="code-block-header">
+              <span class="code-lang">${langText}</span>
+              <button class="code-copy-btn" data-clipboard-text="${encodeURIComponent(str)}" title="复制代码">复制</button>
+            </div>
+            <pre class="hljs"><code>${highlightedCode}</code></pre>
+          </div>`
+        }
+      }
     }),
     AutoImport({
       resolvers: [ElementPlusResolver()],

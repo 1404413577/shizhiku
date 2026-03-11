@@ -67,7 +67,7 @@
 
         <div class="markdown-content">
           <el-scrollbar class="content-scrollbar">
-            <div class="markdown-body">
+            <div class="markdown-body" @click="handleContentClick">
               <component :is="current" />
             </div>
           </el-scrollbar>
@@ -94,6 +94,7 @@
 import { ref, computed } from 'vue'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
+import { markdownProcessor } from '@/utils/markdown.js'
 
 // SEO 配置
 usePageSEO({
@@ -140,6 +141,10 @@ function refreshContent() {
   setTimeout(() => {
     onSelect(currentKey)
   }, 50)
+}
+
+function handleContentClick(event) {
+  markdownProcessor.handleCopyClick(event)
 }
 </script>
 

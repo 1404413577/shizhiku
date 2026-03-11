@@ -124,6 +124,61 @@ body {
   font-weight: bold;
 }
 
+/* Code block wrapper and copy button styles */
+.code-block-wrapper {
+  position: relative;
+  margin: 16px 0;
+  border-radius: 6px;
+  background: var(--el-fill-color-light, #f6f8fa);
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: var(--el-fill-color, #e4e7ed);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.code-lang {
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.code-copy-btn {
+  background: transparent;
+  border: none;
+  color: var(--el-text-color-regular, #606266);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.code-copy-btn:hover {
+  background: var(--el-fill-color-dark, #dcdfe6);
+  color: var(--el-color-primary, #409eff);
+}
+
+.code-copy-btn.copied {
+  color: var(--el-color-success, #67c23a);
+}
+
+.code-block-wrapper pre {
+  margin: 0 !important;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+.code-block-wrapper pre code {
+  background: none !important;
+}
+
 /* Element Plus 按钮主题适配 */
 .el-button {
   transition: all 0.2s ease-in-out;
