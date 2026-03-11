@@ -389,9 +389,16 @@ import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
+import { markdownProcessor } from '@/utils/markdown.js'
 
 const isDark = useDark()
-const toggleDark = useToggle(isDark)
+const _toggleDark = useToggle(isDark)
+const toggleDark = () => {
+  _toggleDark()
+  setTimeout(() => {
+    markdownProcessor.renderMermaid()
+  }, 100)
+}
 
 const router = useRouter()
 const route = useRoute()

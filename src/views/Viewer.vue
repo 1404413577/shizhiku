@@ -438,6 +438,7 @@ watch(() => currentDoc.value, () => {
   if (currentDoc.value) {
     setTimeout(() => {
       addHeadingIds()
+      markdownProcessor.renderMermaid()
     }, 100)
   }
 }, { flush: 'post' })

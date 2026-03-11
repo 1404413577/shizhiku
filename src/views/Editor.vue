@@ -215,6 +215,11 @@ const handleContentChange = () => {
   autoSaveTimer = setTimeout(() => {
     saveDocument()
   }, 3000)
+
+  // 延迟渲染 Mermaid
+  setTimeout(() => {
+    markdownProcessor.renderMermaid()
+  }, 100)
 }
 
 const togglePreview = () => {
@@ -288,6 +293,10 @@ onMounted(async () => {
   
   // 设置编辑模式
   documentsStore.setEditMode(true)
+  
+  setTimeout(() => {
+    markdownProcessor.renderMermaid()
+  }, 300)
 })
 
 onUnmounted(() => {

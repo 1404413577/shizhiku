@@ -31,6 +31,10 @@ export default defineConfig({
       },
       markdownItSetup(md) {
         md.options.highlight = function (str, lang) {
+          if (lang === 'mermaid') {
+            return `<div class="mermaid-wrapper"><div class="mermaid">${md.utils.escapeHtml(str)}</div></div>`
+          }
+
           const rawCode = md.utils.escapeHtml(str)
           let highlightedCode = rawCode
 

@@ -1,5 +1,13 @@
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import mermaid from 'mermaid'
+
+// 初始化 Mermaid，配置为稍后手动触发，支持随黑白主题自动变化
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+})
 
 // 配置 markdown-it
 const md = new MarkdownIt({
@@ -7,6 +15,10 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
   highlight: function (str, lang) {
+    if (lang === 'mermaid') {
+      return `<div class="mermaid-wrapper"><div class="mermaid">${md.utils.escapeHtml(str)}</div></div>`
+    }
+
     const rawCode = md.utils.escapeHtml(str)
     let highlightedCode = rawCode
 
@@ -134,6 +146,22 @@ export class MarkdownProcessor {
           console.error('复制失败:', err)
         })
       }
+    }
+  }
+
+  // 渲染页面上所有的 mermaid 图表
+  async renderMermaid() {
+    try {
+      // 动态获取当前主题
+      const isDark = document.documentElement.classList.contains('dark')
+      mermaid.initialize({
+        theme: isDark ? 'dark' : 'default'
+      })
+      await mermaid.run({
+        querySelector: '.mermaid'
+      })
+    } catch (err) {
+      console.error('Mermaid 渲染失败:', err)
     }
   }
 }

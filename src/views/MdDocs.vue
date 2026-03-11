@@ -91,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh } from '@element-plus/icons-vue'
 import { markdownProcessor } from '@/utils/markdown.js'
@@ -146,6 +146,15 @@ function refreshContent() {
 function handleContentClick(event) {
   markdownProcessor.handleCopyClick(event)
 }
+
+// 监听内容更换，重新渲染 Mermaid
+watch(() => current.value, () => {
+  if (current.value) {
+    setTimeout(() => {
+      markdownProcessor.renderMermaid()
+    }, 150)
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
