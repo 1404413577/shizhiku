@@ -19,8 +19,22 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
   highlight: function (str, lang) {
-    if (lang === 'mermaid') {
+    console.log('🔍 Markdown Highlight Triggered. Lang:', lang || '(empty)', 'String length:', str.length)
+    
+    const normalizedLang = (lang || '').trim().toLowerCase()
+    
+    if (normalizedLang === 'mermaid') {
       return `<div class="mermaid-wrapper"><div class="mermaid">${md.utils.escapeHtml(str)}</div></div>`
+    }
+
+    if (normalizedLang === 'excalidraw') {
+      console.log('🎨 Detected Excalidraw block! Content length:', str.length)
+      return `<div class="excalidraw-render-container" data-excalidraw-data="${md.utils.escapeHtml(str)}">
+        <div class="excalidraw-loading-placeholder">
+          <i class="el-icon-loading"></i>
+          <span>正在渲染绘图...</span>
+        </div>
+      </div>`
     }
 
     const rawCode = md.utils.escapeHtml(str)
@@ -120,6 +134,9 @@ export class MarkdownProcessor {
 
   // 渲染 Markdown 为 HTML
   render(content) {
+    if (content && content.includes('```excalidraw')) {
+      console.log('📝 markdownProcessor: Rendering content WITH excalidraw block')
+    }
     return this.md.render(content)
   }
 
@@ -293,6 +310,59 @@ export class MarkdownProcessor {
         // 渲染失败时也可以考虑给个错误占位图
       }
     }))
+  }
+
+  // 渲染 Excalidraw 为 SVG
+  async renderExcalidraw() {
+    // 兼容两种模式：1. markdown fence 生成的容器 2. Tiptap HTML 导出的 div
+    const containers = document.querySelectorAll('.excalidraw-render-container, div[data-type="excalidraw"]')
+    console.log('🧪 Checking Excalidraw containers, count:', containers.length)
+    if (containers.length === 0) return
+
+    const { getExcalidrawSvg } = await import('@/utils/excalidraw.js')
+
+    for (const container of containers) {
+      if (container.getAttribute('data-rendered') === 'true') continue
+
+      // 提取数据：优先从 data-excalidraw-data (fence)，回退到 data-data (tiptap html) 或 data (legacy/fallback)
+      const rawData = container.getAttribute('data-excalidraw-data') || 
+                      container.getAttribute('data-data') || 
+                      container.getAttribute('data')
+      if (!rawData) {
+        console.warn('⚠️ Excalidraw container has no data', container)
+        continue
+      }
+
+      try {
+        console.log('🚀 Rendering Excalidraw SVG...')
+        const data = JSON.parse(rawData)
+        const svg = await getExcalidrawSvg(data.elements || [], {
+          theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+        }, data.files || {})
+
+        if (svg) {
+          container.innerHTML = svg
+          container.setAttribute('data-rendered', 'true')
+          
+          // 给生成的 SVG 添加一些样式
+          const svgEl = container.querySelector('svg')
+          if (svgEl) {
+            svgEl.style.width = '100%'
+            svgEl.style.height = 'auto'
+            svgEl.style.maxHeight = '800px'
+            svgEl.style.display = 'block'
+            svgEl.style.margin = '0 auto'
+          }
+          console.log('✅ Excalidraw SVG rendered successfully')
+        } else {
+          console.warn('⚠️ Excalidraw SVG generation returned empty')
+          container.innerHTML = '<div class="render-info">无绘图内容</div>'
+        }
+      } catch (err) {
+        console.error('❌ Failed to render Excalidraw SVG:', err)
+        container.innerHTML = `<div class="render-error">绘图渲染失败: ${err.message}</div>`
+      }
+    }
   }
 }
 

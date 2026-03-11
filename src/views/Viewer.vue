@@ -258,8 +258,10 @@ const readingProgress = ref(0)
 
 // 计算属性
 const renderedContent = computed(() => {
-  if (!currentDoc.value?.content) return ''
-  return markdownProcessor.render(currentDoc.value.content)
+  const content = currentDoc.value?.content || ''
+  if (!content) return ''
+  console.log('📄 Viewer Rendering: content length:', content.length, 'Has excalidraw:', content.includes('```excalidraw'))
+  return markdownProcessor.render(content)
 })
 
 const headings = computed(() => {
@@ -575,6 +577,7 @@ watch(() => route.params.id, async (newId, oldId) => {
     // 延迟执行，确保DOM完全更新
     setTimeout(() => {
       addHeadingIds()
+      markdownProcessor.renderExcalidraw()
     }, 200)
   }
 }, { immediate: false })
@@ -583,8 +586,10 @@ watch(() => route.params.id, async (newId, oldId) => {
 watch(() => currentDoc.value, () => {
   if (currentDoc.value) {
     setTimeout(() => {
+      console.log('👀 Viewer Watch Trigger: Content updated, starting layout analysis...')
       addHeadingIds()
       markdownProcessor.renderMermaid()
+      markdownProcessor.renderExcalidraw()
       if (contentRef.value) {
         markdownProcessor.resolveLazyImages(
           contentRef.value,
@@ -631,8 +636,8 @@ const addHeadingIds = () => {
     setupScrollSpy()
 
     // 如果 URL 中有锚点，滚动到对应位置（稍作延迟等待布局完成）
-    if (window.location.hash) {
-      const anchor = window.location.hash.substring(1)
+    if (route.hash) {
+      const anchor = route.hash.substring(1)
       setTimeout(() => scrollToHeading(anchor), 200)
     }
   })
@@ -1117,5 +1122,32 @@ html {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+/* Excalidraw 渲染容器样式 (Viewer 模式) */
+:deep(.excalidraw-render-container) {
+  margin: 1.5rem 0;
+  border: 2px solid #409eff; /* 调试用明显边框 */
+  border-radius: 8px;
+  background: #fff;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+:deep(.excalidraw-loading-placeholder) {
+  padding: 40px;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.render-error) {
+  color: var(--el-color-danger);
+  padding: 20px;
 }
 </style>

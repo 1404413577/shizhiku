@@ -167,7 +167,12 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
+import { Commands, suggestionConfig } from '@/utils/suggestion.js'
+import { ExcalidrawExtension } from '@/utils/excalidrawExtension.js'
 import { Markdown } from 'tiptap-markdown'
+
+// Excalidraw 样式
+import '@excalidraw/excalidraw/index.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -221,6 +226,7 @@ const editor = useEditor({
   content: '',
   extensions: [
     StarterKit,
+    ExcalidrawExtension,
     Markdown.configure({
       html: true,
       tightLists: true,
@@ -228,6 +234,46 @@ const editor = useEditor({
       bulletListMarker: '-',
       linkify: true,
       breaks: true,
+      nodes: {
+        // 关键：确保这里的 key 'excalidraw' 与 ExcalidrawExtension 的 name 一致
+        excalidraw: {
+          serialize: (state, node) => {
+            console.log('📝 Tiptap Serialization Start: excalidraw node')
+            state.write('```excalidraw\n')
+            state.write(node.attrs.data || '')
+            state.write('\n```')
+            state.closeBlock(node)
+            console.log('📝 Tiptap Serialization End: excalidraw node')
+          },
+          parse: {
+            setup(markdownit) {
+              markdownit.use((md) => {
+                const defaultRender = md.renderer.rules.fence || function(tokens, idx, options, env, self) {
+                  return self.renderToken(tokens, idx, options)
+                }
+                md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+                  const token = tokens[idx]
+                  if (token.info === 'excalidraw') {
+                    // 渲染为能被 Tiptap 或 Viewer 识别的格式
+                    return `<div data-type="excalidraw" data-data="${md.utils.escapeHtml(token.content)}"></div>`
+                  }
+                  return defaultRender(tokens, idx, options, env, self)
+                }
+              })
+            },
+            updateDOM(dom) {
+              if (dom.getAttribute('data-type') === 'excalidraw') {
+                return {
+                  type: 'excalidraw',
+                  attrs: {
+                    data: dom.getAttribute('data-data')
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }),
     Placeholder.configure({
       placeholder: '开始编写您的内容... (输入 / 唤出快捷菜单)'
@@ -239,7 +285,10 @@ const editor = useEditor({
     LazyImage.configure({
       inline: false,
       allowBase64: true
-    })
+    }),
+    Commands.configure({
+      suggestion: suggestionConfig,
+    }),
   ],
   editorProps: {
     handlePaste(view, event, slice) {
@@ -287,6 +336,7 @@ const resolveEditorImages = async () => {
 
 // 计算属性
 const renderedContent = computed(() => {
+  console.log('📄 Editor Preview Rendering: content length:', documentContent.value.length, 'Has excalidraw:', documentContent.value.includes('```excalidraw'))
   return markdownProcessor.render(documentContent.value)
 })
 
@@ -362,8 +412,16 @@ const saveDocument = async () => {
   try {
     const updates = {
       title: documentTitle.value,
-      content: documentContent.value,
+      content: editor.value ? editor.value.storage.markdown.getMarkdown() : documentContent.value,
       tags: documentTags.value
+    }
+
+    console.log('📝 Save Clicked. ProseMirror Doc JSON:', JSON.stringify(editor.value?.state.doc.toJSON(), null, 2))
+    console.log('📝 Save Clicked. Final Markdown Length:', updates.content.length)
+    if (updates.content.includes('```excalidraw')) {
+      console.log('✅ Found excalidraw block in FINAL Markdown')
+    } else {
+      console.warn('❌ Excalidraw block MISSING in FINAL Markdown!')
     }
 
     if (documentId.value) {
@@ -854,5 +912,32 @@ watch(() => route.params.id, async (newId) => {
 .toolbar-right {
   display: flex;
   gap: 8px;
+}
+/* Excalidraw 渲染容器样式 (Viewer 模式) */
+:deep(.excalidraw-render-container) {
+  margin: 1.5rem 0;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: #fff; /* Excalidraw 默认背景 */
+  overflow: hidden;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+:deep(.excalidraw-loading-placeholder) {
+  padding: 40px;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:deep(.render-error) {
+  color: var(--el-color-danger);
+  padding: 20px;
 }
 </style>
