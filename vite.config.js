@@ -19,6 +19,7 @@ try {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/shizhiku/',
   plugins: [
     vue({ include: [/\.vue$/, /\.md$/] }),
     Markdown({
@@ -33,7 +34,7 @@ export default defineConfig({
     }),
   // SEO 优化插件
   seoPlugin({
-      baseUrl: 'https://shizhiku.vercel.app',
+      baseUrl: 'https://1404413577.github.io/shizhiku/',
       generateSitemap: true,
       generateRobots: true,
       minifyHtml: true
