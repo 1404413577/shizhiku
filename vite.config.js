@@ -44,11 +44,11 @@ export default defineConfig({
           if (lang && hljs.getLanguage(lang)) {
             try {
               highlightedCode = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value
-            } catch (__) {}
+            } catch (__) { }
           }
-          
+
           const langText = lang ? lang.toUpperCase() : 'TEXT'
-          
+
           return `<div class="code-block-wrapper">
             <div class="code-block-header">
               <span class="code-lang">${langText}</span>
@@ -57,7 +57,7 @@ export default defineConfig({
             <pre class="hljs"><code>${highlightedCode}</code></pre>
           </div>`
         }
-        
+
         md.use(mathjax3)
         md.use(taskLists, { enabled: true, label: true })
 
@@ -89,16 +89,16 @@ export default defineConfig({
     Components({
       resolvers: [ElementPlusResolver()],
     }),
-  // SEO 优化插件
-  seoPlugin({
+    // SEO 优化插件
+    seoPlugin({
       baseUrl: 'https://1404413577.github.io/shizhiku/',
       generateSitemap: true,
       generateRobots: true,
       minifyHtml: true
     }),
-  // 按需启用 docsLoader（如果模块可用）
-  ...(docsLoader ? [docsLoader()] : []),
-  VitePWA({
+    // 按需启用 docsLoader（如果模块可用）
+    ...(docsLoader ? [docsLoader()] : []),
+    VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'logo.png', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
@@ -130,8 +130,27 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,md,woff2}'],
-        // 缓存 GitHub Pages 静态资源
+
+        // 1. 新增：忽略超大的 mathjax 渲染文件，跳过 2MB 体积检查
+        globIgnores: ['**/tex-svg-full-*.js'],
+
         runtimeCaching: [
+          // 2. 新增：将这个超大文件改为运行时按需缓存 (CacheFirst 策略)
+          {
+            urlPattern: /tex-svg-full-.*\.js$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'math-renderer-cache',
+              expiration: {
+                maxEntries: 5,
+                maxAgeSeconds: 60 * 60 * 24 * 30 // 缓存 30 天
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          // 下面是你原本就有的 Google 字体缓存配置，保持不变即可
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
