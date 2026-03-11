@@ -80,7 +80,7 @@
         <div class="markdown-content">
           <el-scrollbar class="content-scrollbar" @scroll="handleScroll">
             <div class="markdown-body" @click="handleContentClick">
-              <component :is="current" />
+              <component :is="current" :key="activeKey" />
             </div>
           </el-scrollbar>
         </div>

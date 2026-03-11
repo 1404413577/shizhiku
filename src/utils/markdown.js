@@ -145,7 +145,8 @@ export class MarkdownProcessor {
 
   // 提取纯文本用于搜索
   extractText(content) {
-    return content
+    if (!content) return ''
+    return String(content)
       .replace(/```[\s\S]*?```/g, '') // 移除代码块
       .replace(/`[^`]*`/g, '') // 移除行内代码
       .replace(/!\[.*?\]\(.*?\)/g, '') // 移除图片
