@@ -455,7 +455,8 @@ function refreshContent() {
     border-right: none;
     border-bottom: 1px solid var(--el-border-color);
     flex: none;
-    max-height: 250px;
+    height: 300px; /* 固定高度以启用内部滚动 */
+    max-height: 40vh;
   }
 
   .content {

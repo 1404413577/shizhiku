@@ -545,6 +545,7 @@ onMounted(async () => {
   border-right: 1px solid #e0e0e0;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .sidebar-header {
@@ -572,6 +573,7 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 0 10px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .document-item {
@@ -788,6 +790,8 @@ onMounted(async () => {
 
 .mobile-sidebar-drawer :deep(.el-drawer__body) {
   padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-sidebar {
