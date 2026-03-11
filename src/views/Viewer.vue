@@ -602,6 +602,12 @@ const addHeadingIds = () => {
   background: #f0f7ff;
 }
 
+@media (max-width: 768px) {
+  .toc-panel {
+    display: none;
+  }
+}
+
 .toc-item.toc-active .toc-link {
   color: #409eff;
   background: #e6f4ff;
@@ -667,6 +673,26 @@ const addHeadingIds = () => {
 
 .document-content.with-toc {
   margin-right: 320px; /* 为目录面板留出空间 */
+}
+
+@media (max-width: 768px) {
+  .document-content.with-toc {
+    margin-right: 0;
+  }
+  
+  .document-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .document-title {
+    font-size: 1.8em;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 /* 标题锚点样式 */

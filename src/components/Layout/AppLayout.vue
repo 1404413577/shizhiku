@@ -1,7 +1,7 @@
 <template>
   <el-container class="app-layout">
-    <!-- 侧边栏 -->
-    <el-aside width="300px" class="sidebar">
+    <!-- 桌面端侧边栏 -->
+    <el-aside width="300px" class="sidebar hidden-xs-only">
       <div class="sidebar-header">
         <h2>知识库</h2>
         <el-button
@@ -151,17 +151,181 @@
           <el-empty description="暂无文档" />
         </div>
       </div>
-
-      <!-- 底部操作 -->
-
-
-
     </el-aside>
+
+    <!-- 移动端侧边栏抽屉 -->
+    <el-drawer
+      v-model="drawerVisible"
+      direction="ltr"
+      size="80%"
+      :with-header="false"
+      class="mobile-sidebar-drawer"
+    >
+      <div class="sidebar mobile-sidebar">
+        <div class="sidebar-header">
+          <h2>知识库</h2>
+          <el-button
+            type="primary"
+            @click="createNewDocument"
+            :icon="Plus"
+            round
+          >
+            新建文档
+          </el-button>
+        </div>
+
+        <!-- 搜索框 -->
+        <div class="search-box">
+          <el-input
+            v-model="searchQuery"
+            placeholder="搜索文档..."
+            :prefix-icon="Search"
+            @input="handleSearch"
+            clearable
+          />
+        </div>
+
+        <!-- 标签过滤 -->
+        <div class="tag-filter" v-if="allTags.length > 0">
+          <el-select
+            v-model="selectedTags"
+            multiple
+            placeholder="按标签过滤"
+            size="small"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="tag in allTags"
+              :key="tag"
+              :label="tag"
+              :value="tag"
+            />
+          </el-select>
+        </div>
+
+        <!-- 文档列表 -->
+        <div class="document-list">
+          <!-- 预设文档区域 -->
+          <div v-if="presetDocuments.length > 0" class="document-section">
+            <div class="section-header">
+              <span class="section-title">预设文档</span>
+              <el-button
+                size="small"
+                text
+                @click="reloadPresetDocs"
+                title="重新加载预设文档"
+                :icon="Refresh"
+                circle
+              />
+            </div>
+            <div
+              v-for="doc in presetDocuments"
+              :key="doc.id"
+              class="document-item preset-doc"
+              :class="{ active: isActiveDocument(doc.id) }"
+              @click="selectDocument(doc)"
+            >
+              <div class="doc-title">
+                <el-icon class="preset-icon"><Document /></el-icon>
+                {{ doc.title }}
+              </div>
+              <div class="doc-meta">
+                <span class="doc-date">{{ formatDate(doc.updatedAt) }}</span>
+                <div class="doc-actions">
+                  <el-button
+                    size="small"
+                    text
+                    @click.stop="editDocument(doc)"
+                    :icon="Edit"
+                    title="编辑文档"
+                    circle
+                  />
+                </div>
+              </div>
+              <div class="doc-summary">{{ doc.summary || '暂无内容' }}</div>
+              <div class="doc-tags" v-if="doc.tags && doc.tags.length > 0">
+                <el-tag
+                  v-for="tag in doc.tags"
+                  :key="tag"
+                  size="small"
+                  type="success"
+                >
+                  {{ tag }}
+                </el-tag>
+              </div>
+            </div>
+          </div>
+
+          <!-- 用户文档区域 -->
+          <div v-if="userDocuments.length > 0" class="document-section">
+            <div class="section-header">
+              <span class="section-title">我的文档</span>
+              <span class="section-count">({{ userDocuments.length }})</span>
+            </div>
+            <div
+              v-for="doc in userDocuments"
+              :key="doc.id"
+              class="document-item"
+              :class="{ active: isActiveDocument(doc.id) }"
+              @click="selectDocument(doc)"
+            >
+              <div class="doc-title">{{ doc.title }}</div>
+              <div class="doc-meta">
+                <span class="doc-date">{{ formatDate(doc.updatedAt) }}</span>
+                <div class="doc-actions">
+                  <el-button
+                    size="small"
+                    text
+                    @click.stop="editDocument(doc)"
+                    :icon="Edit"
+                    title="编辑文档"
+                    circle
+                  />
+                  <el-button
+                    size="small"
+                    text
+                    type="danger"
+                    @click.stop="deleteDocument(doc)"
+                    :icon="Delete"
+                    title="删除文档"
+                    circle
+                  />
+                </div>
+              </div>
+              <div class="doc-summary">{{ doc.summary || '暂无内容' }}</div>
+              <div class="doc-tags" v-if="doc.tags && doc.tags.length > 0">
+                <el-tag
+                  v-for="tag in doc.tags"
+                  :key="tag"
+                  size="small"
+                  type="info"
+                >
+                  {{ tag }}
+                </el-tag>
+              </div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="filteredDocuments.length === 0" class="empty-state">
+            <el-empty description="暂无文档" />
+          </div>
+        </div>
+      </div>
+    </el-drawer>
 
     <!-- 主内容区 -->
     <el-main class="main-content">
       <!-- 顶部导航栏 -->
       <div class="top-nav">
+        <!-- 移动端汉堡菜单按钮 -->
+        <el-button
+          class="menu-toggle hidden-sm-and-up"
+          @click="drawerVisible = true"
+          :icon="Menu"
+          text
+        />
+
         <el-menu
           :default-active="activeNav"
           mode="horizontal"
@@ -211,7 +375,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -221,6 +385,7 @@ const fileInput = ref(null)
 // 响应式数据
 const searchQuery = ref('')
 const selectedTags = ref([])
+const drawerVisible = ref(false)
 
 // 当前激活的导航项
 const activeNav = computed(() => {
@@ -303,8 +468,10 @@ const selectDocument = async (doc) => {
   try {
     // 先更新当前文档状态
     await documentsStore.getDocument(doc.id)
-    // 然后导航到查看页面
+    // Kemudian导航到查看页面
     await router.push(`/view/${doc.id}`)
+    // 移动端关闭侧边栏抽屉
+    drawerVisible.value = false
   } catch (error) {
     console.error('选择文档失败:', error)
     ElMessage.error('加载文档失败')
@@ -574,5 +741,57 @@ onMounted(async () => {
 .empty-state {
   padding: 40px 20px;
   text-align: center;
+}
+
+/* 移动端菜单按钮 */
+.menu-toggle {
+  font-size: 24px;
+  padding: 8px;
+  margin-right: 12px;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .hidden-xs-only {
+    display: none !important;
+  }
+  
+  .hidden-sm-and-up {
+    display: inline-flex !important;
+  }
+
+  .top-nav {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    overflow-x: auto;
+  }
+
+  .nav-menu {
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-bottom: none;
+    flex-wrap: nowrap;
+  }
+
+  .nav-menu .el-menu-item {
+    padding: 0 12px;
+  }
+}
+
+@media (min-width: 769px) {
+  .hidden-sm-and-up {
+    display: none !important;
+  }
+}
+
+.mobile-sidebar-drawer :deep(.el-drawer__body) {
+  padding: 0;
+}
+
+.mobile-sidebar {
+  height: 100%;
+  border-right: none;
 }
 </style>

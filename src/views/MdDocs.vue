@@ -446,18 +446,25 @@ function refreshContent() {
 
 @media (max-width: 768px) {
   .md-docs {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
+    height: auto;
   }
 
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--el-border-color);
-    max-height: 40vh;
+    flex: none;
+    max-height: 250px;
+  }
+
+  .content {
+    flex: 1;
+    overflow: visible;
   }
 
   .content-header {
-    padding: 16px 20px 12px;
+    padding: 12px 15px;
   }
 
   .content-title {
@@ -465,25 +472,25 @@ function refreshContent() {
   }
 
   .markdown-body {
-    padding: 16px;
+    padding: 15px;
   }
 }
 
 @media (max-width: 480px) {
   .sidebar-header {
-    padding: 16px 12px 12px;
-  }
-
-  .search-container {
     padding: 12px;
   }
 
+  .search-container {
+    padding: 10px 12px;
+  }
+
   .doc-list {
-    padding: 6px;
+    padding: 4px;
   }
 
   .doc-item-content {
-    padding: 10px;
+    padding: 8px;
   }
 
   .markdown-body {
@@ -491,11 +498,13 @@ function refreshContent() {
   }
 
   .markdown-body :deep(h1) {
-    font-size: 24px;
+    font-size: 22px;
+    margin-bottom: 16px;
   }
 
   .markdown-body :deep(h2) {
-    font-size: 20px;
+    font-size: 18px;
+    margin-top: 24px;
   }
 }
 </style>

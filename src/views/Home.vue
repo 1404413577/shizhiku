@@ -399,17 +399,36 @@ onMounted(async () => {
 
 @media (max-width: 768px) {
   .home-page {
-    padding: 20px;
+    padding: 15px;
+  }
+  
+  .welcome-section h1 {
+    font-size: 1.8em;
+  }
+  
+  .welcome-section p {
+    font-size: 1em;
   }
   
   .stats-cards {
     flex-direction: column;
     align-items: center;
+    gap: 10px;
   }
   
+  .stat-card {
+    width: 100%;
+  }
+
   .action-buttons {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
+  }
+  
+  .action-buttons .el-button {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-bottom: 10px;
   }
   
   .recent-list {
