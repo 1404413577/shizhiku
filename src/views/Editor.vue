@@ -238,12 +238,10 @@ const editor = useEditor({
         // 关键：确保这里的 key 'excalidraw' 与 ExcalidrawExtension 的 name 一致
         excalidraw: {
           serialize: (state, node) => {
-            console.log('📝 Tiptap Serialization Start: excalidraw node')
             state.write('```excalidraw\n')
             state.write(node.attrs.data || '')
             state.write('\n```')
             state.closeBlock(node)
-            console.log('📝 Tiptap Serialization End: excalidraw node')
           },
           parse: {
             setup(markdownit) {
@@ -336,7 +334,6 @@ const resolveEditorImages = async () => {
 
 // 计算属性
 const renderedContent = computed(() => {
-  console.log('📄 Editor Preview Rendering: content length:', documentContent.value.length, 'Has excalidraw:', documentContent.value.includes('```excalidraw'))
   return markdownProcessor.render(documentContent.value)
 })
 
@@ -414,14 +411,6 @@ const saveDocument = async () => {
       title: documentTitle.value,
       content: editor.value ? editor.value.storage.markdown.getMarkdown() : documentContent.value,
       tags: documentTags.value
-    }
-
-    console.log('📝 Save Clicked. ProseMirror Doc JSON:', JSON.stringify(editor.value?.state.doc.toJSON(), null, 2))
-    console.log('📝 Save Clicked. Final Markdown Length:', updates.content.length)
-    if (updates.content.includes('```excalidraw')) {
-      console.log('✅ Found excalidraw block in FINAL Markdown')
-    } else {
-      console.warn('❌ Excalidraw block MISSING in FINAL Markdown!')
     }
 
     if (documentId.value) {

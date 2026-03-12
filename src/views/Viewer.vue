@@ -260,7 +260,6 @@ const readingProgress = ref(0)
 const renderedContent = computed(() => {
   const content = currentDoc.value?.content || ''
   if (!content) return ''
-  console.log('📄 Viewer Rendering: content length:', content.length, 'Has excalidraw:', content.includes('```excalidraw'))
   return markdownProcessor.render(content)
 })
 
@@ -586,7 +585,6 @@ watch(() => route.params.id, async (newId, oldId) => {
 watch(() => currentDoc.value, () => {
   if (currentDoc.value) {
     setTimeout(() => {
-      console.log('👀 Viewer Watch Trigger: Content updated, starting layout analysis...')
       addHeadingIds()
       markdownProcessor.renderMermaid()
       markdownProcessor.renderExcalidraw()
@@ -1127,7 +1125,7 @@ html {
 /* Excalidraw 渲染容器样式 (Viewer 模式) */
 :deep(.excalidraw-render-container) {
   margin: 1.5rem 0;
-  border: 2px solid #409eff; /* 调试用明显边框 */
+  border: 1px solid var(--el-border-color-lighter);
   border-radius: 8px;
   background: #fff;
   min-height: 200px;

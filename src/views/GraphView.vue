@@ -3,7 +3,11 @@
     <div class="graph-header">
       <h2>关系图谱</h2>
       <div class="header-actions">
-        <el-button @click="refreshGraph" :icon="Refresh" circle title="重新布局"></el-button>
+        <el-radio-group v-model="graphMode" size="small" @change="refreshGraph">
+          <el-radio-button value="document">文档模式</el-radio-button>
+          <el-radio-button value="tag">标签模式</el-radio-button>
+        </el-radio-group>
+        <el-button @click="refreshGraph" :icon="Refresh" circle title="重新布局" style="margin-left: 12px;"></el-button>
       </div>
     </div>
     <div class="graph-content" ref="chartRef"></div>
@@ -22,6 +26,7 @@ const chartRef = ref(null)
 const router = useRouter()
 const documentsStore = useDocumentsStore()
 const isDark = useDark()
+const graphMode = ref('document')
 
 let chartInstance = null
 let resizeObserver = null
@@ -40,6 +45,27 @@ const extractWikiLinks = (content) => {
 
 // 构建节点和连线数据
 const buildGraphData = () => {
+  if (graphMode.value === 'tag') {
+    const data = documentsStore.getTagCooccurrenceData
+    console.log('🌌 GraphView: Tag Data:', data)
+    
+    // 给标签节点添加样式 (使用 hex 颜色以保证 ECharts 渲染稳定)
+    const activeColor = '#409eff'
+    const activeColorLight = '#79bbff'
+    
+    data.nodes.forEach(node => {
+      node.itemStyle = {
+        color: new echarts.graphic.RadialGradient(0.5, 0.5, 0.5, [
+          { offset: 0, color: activeColorLight },
+          { offset: 1, color: activeColor }
+        ]),
+        shadowBlur: 10,
+        shadowColor: 'rgba(64, 158, 255, 0.5)'
+      }
+    })
+    return data
+  }
+
   const documents = documentsStore.documents
   const nodes = []
   const links = []
@@ -108,7 +134,7 @@ const buildGraphData = () => {
           links.push({
             source: doc.id,
             target: targetId,
-            lineStyle: { type: 'dashed', curveness: 0.2, color: 'var(--el-color-primary)', width: 1.5 }
+            lineStyle: { type: 'dashed', curveness: 0.2, color: '#409eff', width: 1.5 }
           })
         }
       })
@@ -127,32 +153,42 @@ const renderChart = () => {
     // 监听点击事件
     chartInstance.on('click', (params) => {
       if (params.dataType === 'node') {
-        const doc = params.data.docData
-        if (!doc.isFolder) {
-          router.push(`/view/${doc.id}`)
+        if (graphMode.value === 'document') {
+          const doc = params.data.docData
+          if (doc && !doc.isFolder) {
+            router.push(`/view/${doc.id}`)
+          }
+        } else {
+          // 标签模式点击：过滤标签
+          router.push({ path: '/search', query: { tags: [params.data.name] } })
         }
       }
     })
-  } else {
-    // 如果主题改变了或者其它需要，我们可能要先 dispose 再重新 init
-    // 但简单的重设也可以
   }
 
   const { nodes, links } = buildGraphData()
+  
+  if (!nodes || nodes.length === 0) {
+    console.warn('⚠️ GraphView: No nodes to render in mode:', graphMode.value)
+  }
 
   const option = {
     backgroundColor: 'transparent',
     tooltip: {
       formatter: (params) => {
         if (params.dataType === 'node') {
-          const doc = params.data.docData
-          return `${doc.isFolder ? '📁 ' : '📄 '} ${doc.title}`
+          if (graphMode.value === 'document') {
+            const doc = params.data.docData
+            return `${doc.isFolder ? '📁 ' : '📄 '} ${doc.title}`
+          } else {
+            return `🏷️ 标签: ${params.data.name}<br/>关联次数: ${params.data.value}`
+          }
         }
         return null
       }
     },
     legend: [{
-      data: ['普通文档', '文件夹', '预设/动态生成'],
+      data: graphMode.value === 'document' ? ['普通文档', '文件夹', '预设/动态生成'] : ['标签'],
       textStyle: {
         color: isDark.value ? '#ccc' : '#333'
       }
@@ -163,26 +199,26 @@ const renderChart = () => {
         layout: 'force',
         data: nodes,
         links: links,
-        categories: [
-          { name: '普通文档' },
-          { name: '文件夹' },
-          { name: '预设/动态生成' }
-        ],
-        roam: true, // 开启鼠标缩放和平移
+        categories: graphMode.value === 'document' 
+          ? [ { name: '普通文档' }, { name: '文件夹' }, { name: '预设/动态生成' } ]
+          : [ { name: '标签' } ],
+        roam: true,
         label: {
           show: true,
           position: 'right',
           formatter: '{b}',
-          color: isDark.value ? '#eee' : '#333'
+          color: isDark.value ? '#eee' : '#333',
+          fontSize: graphMode.value === 'tag' ? 14 : 12
         },
         force: {
-          repulsion: 300,
-          gravity: 0.1,
-          edgeLength: [50, 150]
+          repulsion: graphMode.value === 'tag' ? 600 : 300,
+          gravity: 0.05,
+          edgeLength: graphMode.value === 'tag' ? [120, 250] : [50, 150]
         },
         lineStyle: {
           color: 'source',
-          curveness: 0.1
+          curveness: 0.1,
+          opacity: 0.5
         },
         emphasis: {
           focus: 'adjacency',
@@ -230,7 +266,6 @@ onUnmounted(() => {
 // 监听数据改变或主题改变，重新渲染
 watch([() => documentsStore.documents, isDark], () => {
   if (chartInstance) {
-    // 当为主题改变时，最好的方式是重新 init 以获取原生主题，但为了体验平滑，可以使用 refresh 方式
     refreshGraph()
   }
 }, { deep: true })

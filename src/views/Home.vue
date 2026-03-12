@@ -28,6 +28,13 @@
       </div>
     </div>
 
+    <div class="stats-section">
+      <h2>活跃统计</h2>
+      <el-card class="heatmap-card shadow-sm">
+        <div class="heatmap-container" ref="heatmapRef"></div>
+      </el-card>
+    </div>
+
     <div class="quick-actions">
       <h2>快速操作</h2>
       <div class="action-buttons">
@@ -125,13 +132,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Upload } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
+import { useDark } from '@vueuse/core'
 
 const router = useRouter()
 const documentsStore = useDocumentsStore()
@@ -142,7 +151,11 @@ usePageSEO({
   description: '现代化的知识管理平台，轻松创建、编辑和管理您的文档。支持 Markdown 语法、智能搜索和标签分类。',
   keywords: '知识库首页,文档管理首页,Markdown编辑器,知识管理系统'
 })
+
 const fileInput = ref(null)
+const heatmapRef = ref(null)
+const isDark = useDark()
+let heatmapInstance = null
 
 // 计算属性
 const stats = computed(() => documentsStore.stats)
@@ -218,6 +231,71 @@ const getDocumentSummary = (doc) => {
   return '暂无内容'
 }
 
+const renderHeatmap = () => {
+  if (!heatmapRef.value) return
+  
+  if (!heatmapInstance) {
+    heatmapInstance = echarts.init(heatmapRef.value, isDark.value ? 'dark' : 'light')
+  }
+
+  const data = documentsStore.getDailyActivityData
+  const year = new Date().getFullYear()
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      position: 'top',
+      formatter: (p) => {
+        if (!p.data) return ''
+        return `${p.data[0]}: ${p.data[1]} 次更新`
+      }
+    },
+    visualMap: {
+      min: 0,
+      max: Math.max(...data.map(d => d[1] || 0), 5),
+      type: 'piecewise',
+      orient: 'horizontal',
+      left: 'center',
+      top: 0,
+      show: false,
+      inRange: {
+        color: isDark.value 
+          ? ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353']
+          : ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39']
+      }
+    },
+    calendar: {
+      top: 40,
+      left: 30,
+      right: 30,
+      cellSize: ['auto', 13],
+      range: year,
+      itemStyle: {
+        borderWidth: 0.5,
+        borderColor: isDark.value ? '#30363d' : '#fff'
+      },
+      yearLabel: { show: false },
+      dayLabel: {
+        nameMap: ['日', '一', '二', '三', '四', '五', '六'],
+        firstDay: 1,
+        color: isDark.value ? '#8b949e' : '#666'
+      },
+      monthLabel: {
+        nameMap: 'cn',
+        color: isDark.value ? '#8b949e' : '#666'
+      },
+      splitLine: { show: false }
+    },
+    series: {
+      type: 'heatmap',
+      coordinateSystem: 'calendar',
+      data: data
+    }
+  }
+
+  heatmapInstance.setOption(option)
+}
+
 // 初始化
 onMounted(async () => {
   if (documentsStore.documents.length === 0) {
@@ -230,7 +308,25 @@ onMounted(async () => {
   } catch (error) {
     console.error('生成摘要失败:', error)
   }
+
+  nextTick(() => {
+    renderHeatmap()
+    window.addEventListener('resize', () => heatmapInstance?.resize())
+  })
 })
+
+onUnmounted(() => {
+  window.removeEventListener('resize', () => heatmapInstance?.resize())
+  heatmapInstance?.dispose()
+})
+
+watch([() => documentsStore.documents, isDark], () => {
+  if (heatmapInstance) {
+    heatmapInstance.dispose()
+    heatmapInstance = null
+    renderHeatmap()
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -283,6 +379,25 @@ onMounted(async () => {
 .stat-label {
   color: #666;
   font-size: 0.9em;
+}
+
+.stats-section {
+  margin-bottom: 40px;
+}
+
+.stats-section h2 {
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.5em;
+}
+
+.heatmap-card {
+  border-radius: 8px;
+}
+
+.heatmap-container {
+  height: 180px;
+  width: 100%;
 }
 
 .quick-actions {

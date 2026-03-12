@@ -1,95 +1,91 @@
 import Fuse from 'fuse.js'
-import { markdownProcessor } from './markdown.js'
 
+// --- Shared Logic (Main Thread) ---
+function extractText(content) {
+  if (!content) return ''
+  return String(content)
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`]*`/g, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[#*_~`]/g, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+}
+
+function generateSummary(content, maxLength = 200) {
+  const text = extractText(content)
+  return text.length > maxLength 
+    ? text.substring(0, maxLength) + '...'
+    : text
+}
+
+const fuseOptions = {
+  keys: [
+    { name: 'title', weight: 0.4 },
+    { name: 'searchText', weight: 0.3 },
+    { name: 'tags', weight: 0.2 },
+    { name: 'summary', weight: 0.1 }
+  ],
+  threshold: 0.3,
+  includeScore: true,
+  includeMatches: true,
+  minMatchCharLength: 2
+}
+
+/**
+ * SearchEngine (Synchronous Main Thread)
+ * Note: Keeps Promise-based API for compatibility with the store, but executes locally.
+ */
 export class SearchEngine {
   constructor() {
     this.fuse = null
     this.documents = []
   }
 
+  _initializeLocalFuse(documents) {
+    if (!Array.isArray(documents)) return
+    
+    console.log('🔍 Search Engine: Initializing Fuse instance (Main Thread)')
+    const indexedDocs = documents.map(doc => ({
+      ...doc,
+      searchText: extractText(doc.content),
+      summary: generateSummary(doc.content)
+    }))
+    
+    this.fuse = new Fuse(indexedDocs, fuseOptions)
+    this.documents = documents
+    console.log('✅ Search Engine: Initialization complete (Main Thread)')
+  }
+
   // 初始化搜索引擎
-  initialize(documents) {
-    try {
-      console.log('🔍 初始化搜索引擎，文档数量:', documents.length)
-
-      if (!Array.isArray(documents)) {
-        console.error('❌ 传入的文档不是数组:', documents)
-        this.documents = []
-        this.fuse = null
-        return
-      }
-
-      this.documents = documents.map(doc => {
-        try {
-          const searchText = doc.content ? markdownProcessor.extractText(doc.content) : ''
-          const summary = doc.content ? markdownProcessor.generateSummary(doc.content) : ''
-
-          return {
-            ...doc,
-            searchText,
-            summary
-          }
-        } catch (error) {
-          console.error('处理文档时出错:', doc.title, error)
-          return {
-            ...doc,
-            searchText: doc.content || '',
-            summary: doc.title || ''
-          }
-        }
-      })
-
-      const options = {
-        keys: [
-          { name: 'title', weight: 0.4 },
-          { name: 'searchText', weight: 0.3 },
-          { name: 'tags', weight: 0.2 },
-          { name: 'summary', weight: 0.1 }
-        ],
-        threshold: 0.3,
-        includeScore: true,
-        includeMatches: true,
-        minMatchCharLength: 2
-      }
-
-      this.fuse = new Fuse(this.documents, options)
-      console.log('✅ 搜索引擎初始化成功，索引文档数量:', this.documents.length)
-    } catch (error) {
-      console.error('❌ 搜索引擎初始化失败:', error)
-      this.documents = []
-      this.fuse = null
-    }
+  async initialize(documents) {
+    this._initializeLocalFuse(documents)
+    return { count: documents.length }
   }
 
   // 搜索文档
-  search(query) {
-    console.log('🔍 执行搜索，查询词:', query)
+  async search(query) {
+    if (!this.fuse) {
+      if (this.documents.length > 0) {
+        this._initializeLocalFuse(this.documents)
+      } else {
+        return []
+      }
+    }
 
-    if (!query || typeof query !== 'string' || !query.trim()) {
-      console.log('⚠️ 查询词为空，返回所有文档')
+    const currentQuery = (query || '').trim()
+    if (!currentQuery) {
       return this.documents.map(doc => ({ item: doc, score: 0 }))
     }
 
-    if (!this.fuse) {
-      console.error('❌ 搜索引擎未初始化')
-      return []
-    }
-
     try {
-      const results = this.fuse.search(query.trim())
-      console.log('✅ 搜索完成，结果数量:', results.length)
+      const results = this.fuse.search(currentQuery)
       return results
     } catch (error) {
-      console.error('❌ 搜索执行失败:', error)
+      console.error('❌ Search Engine: Search failed:', error)
       return []
     }
-  }
-
-  // 按标签过滤
-  filterByTag(tag) {
-    return this.documents.filter(doc => 
-      doc.tags && doc.tags.includes(tag)
-    )
   }
 
   // 获取所有标签
@@ -104,24 +100,23 @@ export class SearchEngine {
   }
 
   // 高级搜索
-  advancedSearch(options = {}) {
+  async advancedSearch(options = {}) {
     const { query, tags, dateRange, sortBy } = options
-    let results = this.documents
+    let results = []
 
-    // 文本搜索
     if (query && query.trim()) {
-      const searchResults = this.search(query)
+      const searchResults = await this.search(query)
       results = searchResults.map(result => result.item)
+    } else {
+      results = [...this.documents]
     }
 
-    // 标签过滤
     if (tags && tags.length > 0) {
       results = results.filter(doc => 
         doc.tags && tags.some(tag => doc.tags.includes(tag))
       )
     }
 
-    // 日期范围过滤
     if (dateRange && dateRange.start && dateRange.end) {
       results = results.filter(doc => {
         const docDate = new Date(doc.updatedAt)
@@ -130,7 +125,6 @@ export class SearchEngine {
       })
     }
 
-    // 排序
     if (sortBy) {
       results.sort((a, b) => {
         switch (sortBy) {

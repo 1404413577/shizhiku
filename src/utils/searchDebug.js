@@ -10,9 +10,9 @@ export const searchDebug = {
   checkSearchEngine() {
     console.group('🔍 搜索引擎状态检查')
     
-    console.log('搜索引擎实例:', searchEngine)
-    console.log('Fuse 实例:', searchEngine.fuse)
-    console.log('文档数量:', searchEngine.documents.length)
+    console.log('搜索引擎代理实例:', searchEngine)
+    console.log('工作线程状态:', searchEngine.worker ? '已创建' : '未创建')
+    console.log('主线程备份文档数量:', searchEngine.documents.length)
     
     if (searchEngine.documents.length > 0) {
       console.log('文档示例:', searchEngine.documents[0])
@@ -31,16 +31,10 @@ export const searchDebug = {
   },
 
   // 测试搜索功能
-  testSearch(query) {
+  async testSearch(query) {
     console.group(`🎯 测试搜索: "${query}"`)
     
-    if (!searchEngine.fuse) {
-      console.error('❌ 搜索引擎未初始化')
-      console.groupEnd()
-      return []
-    }
-    
-    const results = searchEngine.search(query)
+    const results = await searchEngine.search(query)
     console.log('搜索结果数量:', results.length)
     
     if (results.length > 0) {
@@ -87,14 +81,13 @@ export const searchDebug = {
   },
 
   // 重新初始化搜索引擎
-  reinitializeSearch(documents) {
+  async reinitializeSearch(documents) {
     console.group('🔄 重新初始化搜索引擎')
     
     try {
-      searchEngine.initialize(documents)
+      await searchEngine.initialize(documents)
       console.log('✅ 搜索引擎重新初始化成功')
       console.log('文档数量:', searchEngine.documents.length)
-      console.log('Fuse 实例:', searchEngine.fuse)
     } catch (error) {
       console.error('❌ 搜索引擎初始化失败:', error)
     }
@@ -120,7 +113,7 @@ export const searchDebug = {
   },
 
   // 完整诊断
-  fullDiagnosis() {
+  async fullDiagnosis() {
     console.group('🏥 搜索功能完整诊断')
     
     this.checkSearchEngine()
@@ -128,22 +121,22 @@ export const searchDebug = {
     
     // 测试常见搜索词
     const testQueries = ['文档', '示例', '指南', 'markdown']
-    testQueries.forEach(query => {
-      this.testSearch(query)
-    })
+    for (const query of testQueries) {
+      await this.testSearch(query)
+    }
     
     console.groupEnd()
   },
 
   // 修复搜索问题
-  fixSearchIssues(documents) {
+  async fixSearchIssues(documents) {
     console.group('🔧 修复搜索问题')
     
     // 重新初始化
-    this.reinitializeSearch(documents)
+    await this.reinitializeSearch(documents)
     
     // 验证修复结果
-    this.testSearch('文档')
+    await this.testSearch('文档')
     
     console.groupEnd()
   }

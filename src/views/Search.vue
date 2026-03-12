@@ -101,13 +101,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { Search, Edit } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const documentsStore = useDocumentsStore()
 
 // 响应式数据
@@ -148,6 +149,21 @@ const handleSearch = (query) => {
   documentsStore.searchDocuments(query)
 }
 
+// 调试输出
+watch([searchQuery, searchResults], () => {
+  console.log('🔍 Search页面状态更新: Query:', searchQuery.value, 'Results Count:', searchResults.value.length)
+})
+
+const syncRouteParams = () => {
+  const queryTags = route.query.tags
+  if (queryTags) {
+    const tagsArray = Array.isArray(queryTags) ? queryTags : [queryTags]
+    selectedTags.value = tagsArray
+    documentsStore.setTagFilter(tagsArray)
+    console.log('🏷️ Search页面: 从路由同步标签过滤:', tagsArray)
+  }
+}
+
 const handleTagFilter = (tags) => {
   documentsStore.setTagFilter(tags)
 }
@@ -173,6 +189,11 @@ onMounted(async () => {
   if (documentsStore.documents.length === 0) {
     await documentsStore.loadDocuments()
   }
+  syncRouteParams()
+})
+
+watch(() => route.query.tags, () => {
+  syncRouteParams()
 })
 </script>
 
@@ -279,6 +300,7 @@ onMounted(async () => {
   margin-bottom: 15px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

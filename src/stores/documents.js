@@ -95,7 +95,69 @@ export const useDocumentsStore = defineStore('documents', {
       lastUpdated: state.documents.length > 0 
         ? Math.max(...state.documents.map(doc => new Date(doc.updatedAt)))
         : null
-    })
+    }),
+
+    // 获取每日活跃数据 (用于热力图)
+    getDailyActivityData: (state) => {
+      const counts = {}
+      state.documents.forEach(doc => {
+        if (doc.updatedAt) {
+          const date = new Date(doc.updatedAt).toISOString().split('T')[0]
+          counts[date] = (counts[date] || 0) + 1
+        }
+      })
+      return Object.entries(counts).map(([date, count]) => [date, count])
+    },
+
+    // 获取标签共现数据 (用于星系图谱)
+    getTagCooccurrenceData: (state) => {
+      const tagCounts = {}
+      const cooccurrence = {}
+      const tagsSet = new Set()
+
+      state.documents.forEach(doc => {
+        const tags = Array.isArray(doc.tags) ? doc.tags : []
+        if (tags.length > 0) {
+          const docTags = [...new Set(tags.filter(tag => typeof tag === 'string' && tag.trim()))]
+          docTags.forEach(tag => {
+            tagsSet.add(tag)
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1
+          })
+
+          // 计算共现
+          for (let i = 0; i < docTags.length; i++) {
+            for (let j = i + 1; j < docTags.length; j++) {
+              const pair = [docTags[i], docTags[j]].sort().join('|')
+              cooccurrence[pair] = (cooccurrence[pair] || 0) + 1
+            }
+          }
+        }
+      })
+
+      const nodes = Array.from(tagsSet).map(tag => ({
+        id: tag,
+        name: tag,
+        value: tagCounts[tag],
+        symbolSize: Math.min(Math.max(tagCounts[tag] * 8, 20), 80),
+        category: 0,
+        label: { show: true }
+      }))
+
+      const links = Object.entries(cooccurrence).map(([pair, count]) => {
+        const [source, target] = pair.split('|')
+        return {
+          source,
+          target,
+          value: count,
+          lineStyle: {
+            width: Math.min(count * 2, 8),
+            opacity: 0.4
+          }
+        }
+      })
+
+      return { nodes, links }
+    }
   },
 
   actions: {
@@ -148,8 +210,8 @@ export const useDocumentsStore = defineStore('documents', {
           await this.loadPresetDocsIfNeeded()
         }
 
-        // 初始化搜索引擎
-        searchEngine.initialize([...this.documents])
+        // 初始化搜索引擎 (异步)
+        await searchEngine.initialize([...this.documents])
       } catch (error) {
         console.error('加载文档失败:', error)
         throw error
@@ -381,7 +443,7 @@ export const useDocumentsStore = defineStore('documents', {
           this.documents = [...this.documents, document]
         }
 
-        searchEngine.initialize([...this.documents])
+        await searchEngine.initialize([...this.documents])
         this.currentDocument = { ...document }
         return document
       } catch (error) {
@@ -421,7 +483,7 @@ export const useDocumentsStore = defineStore('documents', {
         this.documents = this.documents.filter(doc => !idSet.has(doc.id))
         
         // 重新初始化搜索引擎（只执行一次）
-        searchEngine.initialize([...this.documents])
+        await searchEngine.initialize([...this.documents])
         
         // 如果当前正在查看的文档被删除了，清空当前文档
         if (this.currentDocument && idSet.has(this.currentDocument.id)) {
@@ -446,15 +508,25 @@ export const useDocumentsStore = defineStore('documents', {
       }
 
       try {
-        const results = searchEngine.search(query.trim())
-        // 始终返回指向 state.documents 的同一引用，避免引用不一致导致 includes 失败
-        const byId = new Map(this.documents.map(d => [d.id, d]))
-        this.searchResults = results
-          .map(r => byId.get(r.item.id))
-          .filter(Boolean)
-        console.log('📝 Store: 搜索完成，结果数量:', this.searchResults.length)
+        const currentQuery = query.trim()
+        searchEngine.search(currentQuery).then(results => {
+          // 确保搜索词没变（防止竞态）
+          if (this.searchQuery === query) {
+            const byId = new Map(this.documents.map(d => [d.id, d]))
+            this.searchResults = results
+              .map(r => byId.get(r.item.id))
+              .filter(Boolean)
+            console.log('📝 Store: 搜索(Worker)完成，结果数量:', this.searchResults.length)
+          }
+        }).catch(err => {
+          console.error('📝 Store: 搜索异步执行失败:', err)
+          // 仅在当前查询仍然匹配时重置结果
+          if (this.searchQuery === query) {
+            this.searchResults = []
+          }
+        })
       } catch (error) {
-        console.error('📝 Store: 搜索失败:', error)
+        console.error('📝 Store: 搜索(同步)启动失败:', error)
         this.searchResults = []
       }
     },

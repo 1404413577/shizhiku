@@ -50,7 +50,6 @@ const handleUpdate = (elements, appState, files) => {
   // 我们只监听元素和文件的变化进行持久化
   const data = JSON.stringify({ elements, files })
   if (data !== props.node.attrs.data) {
-    console.log('📝 Tiptap Node Updating: Excalidraw content changed (length:', data.length, ')')
     props.updateAttributes({ data })
   }
 }
