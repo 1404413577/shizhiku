@@ -38,6 +38,12 @@ const routes = [
     meta: { title: '关于我' }
   },
   {
+    path: '/chat',
+    name: 'ChatView',
+    component: () => import('@/views/ChatView.vue'),
+    meta: { title: 'AI 对话' }
+  },
+  {
     path: '/graph',
     name: 'GraphView',
     component: () => import('@/views/GraphView.vue'),

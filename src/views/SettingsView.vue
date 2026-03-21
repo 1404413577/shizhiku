@@ -173,6 +173,25 @@
                 </el-form-item>
               </el-form>
             </el-tab-pane>
+            <el-tab-pane label="Ollama (本地部署)" name="ollama">
+              <el-alert
+                title="Ollama 连接说明"
+                type="success"
+                description="连接您位于本地或其他服务器的 Ollama 服务。注意：Ollama 默认不允许浏览器跨域访问，请在系统的环境变量中设置 OLLAMA_ORIGINS='*' 并重启 Ollama。"
+                show-icon
+                :closable="false"
+                style="margin-bottom: 20px"
+              />
+
+              <el-form label-width="140px">
+                <el-form-item label="Ollama 服务地址">
+                  <el-input v-model="settings.ollamaBaseUrl" placeholder="http://localhost:11434" />
+                </el-form-item>
+                <el-form-item label="默认选用模型">
+                  <el-input v-model="settings.ollamaModel" placeholder="例如：deepseek-r1:1.5b (留空将在对话页选择)" />
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
           </el-tabs>
         </el-card>
 

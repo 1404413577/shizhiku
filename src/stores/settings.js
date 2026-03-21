@@ -24,6 +24,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const localAiType = ref(localStorage.getItem('setting-local-ai-type') || 'gpu') // gpu | cpu
   const localModelId = ref(localStorage.getItem('setting-local-model-id') || 'SmolLM2-135M-Instruct-q4f16_1-MLC')
   const localCpuModelId = ref(localStorage.getItem('setting-local-cpu-model-id') || 'Xenova/SmolLM2-135M-Instruct')
+  const ollamaBaseUrl = ref(localStorage.getItem('setting-ollama-base-url') || 'http://localhost:11434')
+  const ollamaModel = ref(localStorage.getItem('setting-ollama-model') || '')
 
   // 监听并持久化
   watch(primaryColor, (val) => localStorage.setItem('setting-primary-color', val))
@@ -45,6 +47,8 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(localAiType, (val) => localStorage.setItem('setting-local-ai-type', val))
   watch(localModelId, (val) => localStorage.setItem('setting-local-model-id', val))
   watch(localCpuModelId, (val) => localStorage.setItem('setting-local-cpu-model-id', val))
+  watch(ollamaBaseUrl, (val) => localStorage.setItem('setting-ollama-base-url', val))
+  watch(ollamaModel, (val) => localStorage.setItem('setting-ollama-model', val))
 
   return {
     primaryColor,
@@ -60,9 +64,11 @@ export const useSettingsStore = defineStore('settings', () => {
     aiApiKey,
     aiBaseUrl,
     aiModel,
-     aiEngine,
-     localAiType,
-     localModelId,
-     localCpuModelId
+    aiEngine,
+    localAiType,
+    localModelId,
+    localCpuModelId,
+    ollamaBaseUrl,
+    ollamaModel
   }
 })

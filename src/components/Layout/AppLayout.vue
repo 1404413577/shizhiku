@@ -514,6 +514,12 @@
             <el-icon><Search /></el-icon>
             <span>搜索</span>
           </el-menu-item>
+          
+          <el-menu-item index="/chat">
+            <el-icon><ChatLineRound /></el-icon>
+            <span>AI 对话</span>
+          </el-menu-item>
+
           <el-menu-item index="/about">
             <el-icon><InfoFilled /></el-icon>
             <span>关于我</span>
@@ -556,7 +562,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { FSService } from '@/services/fs.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Document, Search, House, InfoFilled, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting, FolderOpened, FolderChecked } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Document, Search, House, InfoFilled, ChatLineRound, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting, FolderOpened, FolderChecked } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
 
