@@ -129,6 +129,7 @@ export default defineConfig({
         ]
       },
       workbox: {
+        maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15MB 允许缓存大文件
         globPatterns: ['**/*.{js,css,html,ico,png,svg,md,woff2}'],
 
         // 1. 新增：忽略超大的 mathjax 渲染文件，跳过 2MB 体积检查
