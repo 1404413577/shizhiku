@@ -5,6 +5,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import Components from 'unplugin-vue-components/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import { seoPlugin } from './vite-plugins/seo-plugin.js'
+import { changelogPlugin } from './vite-plugins/changelog-plugin.js'
 import { VitePWA } from 'vite-plugin-pwa'
 import hljs from 'highlight.js'
 import mathjax3 from 'markdown-it-mathjax3'
@@ -96,6 +97,7 @@ export default defineConfig({
       generateRobots: true,
       minifyHtml: true
     }),
+    changelogPlugin(),
     // 按需启用 docsLoader（如果模块可用）
     ...(docsLoader ? [docsLoader()] : []),
     VitePWA({
