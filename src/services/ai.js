@@ -1,7 +1,8 @@
 import { useSettingsStore } from '@/stores/settings'
+import { localAiService } from './localAi'
 
 /**
- * 通用 AI 服务，调用兼容 OpenAI 的 API
+ * 通用 AI 服务，调用兼容 OpenAI 的 API 或本地 WebLLM
  */
 export class AIService {
   static getConfigs() {
@@ -9,18 +10,30 @@ export class AIService {
     const apiKey = settings.aiApiKey || ''
     const baseUrl = settings.aiBaseUrl || 'https://api.openai.com/v1'
     const model = settings.aiModel || 'gpt-3.5-turbo'
-    return { apiKey, baseUrl, model }
+    const aiEngine = settings.aiEngine || 'online'
+    const localAiType = settings.localAiType || 'gpu'
+    const localModelId = localAiType === 'gpu' 
+      ? (settings.localModelId || 'SmolLM2-135M-Instruct-q4f16_1-MLC')
+      : (settings.localCpuModelId || 'Xenova/SmolLM2-135M-Instruct')
+    return { apiKey, baseUrl, model, aiEngine, localAiType, localModelId }
   }
 
   /**
    * 发送聊天补全请求
    * @param {Array} messages - 消息列表 [{ role: 'user', content: '...' }]
    * @param {Function} onChunk - 流式输出时的回调函数
+   * @param {Function} onProgress - 本地模型加载进度回调 (仅本地模式有效)
    * @returns {Promise<string>} - 完整回复文本
    */
-  static async chatCompletion(messages, onChunk = null) {
-    const { apiKey, baseUrl, model } = this.getConfigs()
+  static async chatCompletion(messages, onChunk = null, onProgress = null) {
+    const { apiKey, baseUrl, model, aiEngine, localAiType, localModelId } = this.getConfigs()
 
+    // 如果是本地引擎
+    if (aiEngine === 'local') {
+      return localAiService.chatCompletion(localModelId, localAiType, messages, onChunk, onProgress)
+    }
+
+    // 以下为在线引擎逻辑
     if (!apiKey) {
       throw new Error('请先在"设置"中配置 AI API Key。')
     }

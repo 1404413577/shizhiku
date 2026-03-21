@@ -20,6 +20,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const aiApiKey = ref(localStorage.getItem('setting-ai-api-key') || '')
   const aiBaseUrl = ref(localStorage.getItem('setting-ai-base-url') || 'https://api.openai.com/v1')
   const aiModel = ref(localStorage.getItem('setting-ai-model') || 'gpt-3.5-turbo')
+  const aiEngine = ref(localStorage.getItem('setting-ai-engine') || 'online') // online | local
+  const localAiType = ref(localStorage.getItem('setting-local-ai-type') || 'gpu') // gpu | cpu
+  const localModelId = ref(localStorage.getItem('setting-local-model-id') || 'SmolLM2-135M-Instruct-q4f16_1-MLC')
+  const localCpuModelId = ref(localStorage.getItem('setting-local-cpu-model-id') || 'Xenova/SmolLM2-135M-Instruct')
 
   // 监听并持久化
   watch(primaryColor, (val) => localStorage.setItem('setting-primary-color', val))
@@ -37,6 +41,10 @@ export const useSettingsStore = defineStore('settings', () => {
   watch(aiApiKey, (val) => localStorage.setItem('setting-ai-api-key', val))
   watch(aiBaseUrl, (val) => localStorage.setItem('setting-ai-base-url', val))
   watch(aiModel, (val) => localStorage.setItem('setting-ai-model', val))
+  watch(aiEngine, (val) => localStorage.setItem('setting-ai-engine', val))
+  watch(localAiType, (val) => localStorage.setItem('setting-local-ai-type', val))
+  watch(localModelId, (val) => localStorage.setItem('setting-local-model-id', val))
+  watch(localCpuModelId, (val) => localStorage.setItem('setting-local-cpu-model-id', val))
 
   return {
     primaryColor,
@@ -51,6 +59,10 @@ export const useSettingsStore = defineStore('settings', () => {
     autoBackup,
     aiApiKey,
     aiBaseUrl,
-    aiModel
+    aiModel,
+     aiEngine,
+     localAiType,
+     localModelId,
+     localCpuModelId
   }
 })

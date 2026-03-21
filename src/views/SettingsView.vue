@@ -82,26 +82,98 @@
             </div>
           </template>
           
-          <el-alert
-            title="纯前端运行说明"
-            type="info"
-            description="由于本地知识库没有独立后端，所有的 AI 功能都是直接从您的浏览器跨域请求您配置的 AI 网关。请确保您填写的 Base URL 能够处理跨域 (CORS) 请求。"
-            show-icon
-            :closable="false"
-            style="margin-bottom: 20px"
-          />
+          <el-tabs v-model="settings.aiEngine" class="ai-tabs">
+            <el-tab-pane label="在线 API 模式" name="online">
+              <el-alert
+                title="API 连接说明"
+                type="info"
+                description="调用兼容 OpenAI 的 API。所有的 AI 功能都是直接从您的浏览器跨域请求您配置的 AI 网关。请确保您填写的 Base URL 能够处理跨域 (CORS) 请求。"
+                show-icon
+                :closable="false"
+                style="margin-bottom: 20px"
+              />
 
-          <el-form label-width="120px">
-            <el-form-item label="API Base URL">
-              <el-input v-model="settings.aiBaseUrl" placeholder="https://api.openai.com/v1" />
-            </el-form-item>
-            <el-form-item label="API Key">
-              <el-input v-model="settings.aiApiKey" type="password" show-password placeholder="sk-..." />
-            </el-form-item>
-            <el-form-item label="默认模型">
-              <el-input v-model="settings.aiModel" placeholder="gpt-3.5-turbo (或 deepseek-chat 等)" />
-            </el-form-item>
-          </el-form>
+              <el-form label-width="120px">
+                <el-form-item label="API Base URL">
+                  <el-input v-model="settings.aiBaseUrl" placeholder="https://api.openai.com/v1" />
+                </el-form-item>
+                <el-form-item label="API Key">
+                  <el-input v-model="settings.aiApiKey" type="password" show-password placeholder="sk-..." />
+                </el-form-item>
+                <el-form-item label="默认模型">
+                  <el-input v-model="settings.aiModel" placeholder="gpt-3.5-turbo (或 deepseek-chat 等)" />
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
+
+            <el-tab-pane label="纯本地模式" name="local">
+              <div v-if="!webgpuSupport.supported" class="webgpu-warning">
+                <el-alert
+                  :title="webgpuSupport.message"
+                  type="warning"
+                  show-icon
+                  :closable="false"
+                />
+                <div class="fallback-hint">
+                  建议切换到 <b>CPU 模式</b> 运行，虽然速度较慢，但对硬件无特殊要求。
+                </div>
+              </div>
+              <el-alert
+                v-else
+                title="本地运行说明"
+                type="success"
+                description="利用 WebLLM 或 Transformers.js 技术在浏览器中直接运行大模型，数据不出本地。"
+                show-icon
+                :closable="false"
+                style="margin-bottom: 20px"
+              />
+
+              <el-form label-width="120px">
+                <el-form-item label="运行模式">
+                  <el-radio-group v-model="settings.localAiType">
+                    <el-radio-button label="gpu">GPU (WebGPU)</el-radio-button>
+                    <el-radio-button label="cpu">CPU (WASM)</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+
+                <el-form-item v-if="settings.localAiType === 'gpu'" label="GPU 模型选择">
+                  <el-select v-model="settings.localModelId" placeholder="选择本地模型" style="width: 100%">
+                    <el-option label="SmolLM2-135M (轻量 / 运行快 / 推荐测试)" value="SmolLM2-135M-Instruct-q4f16_1-MLC" />
+                    <el-option label="Llama-3.2-1B (中量 / 效果均衡)" value="Llama-3.2-1B-Instruct-q4f16_1-MLC" />
+                  </el-select>
+                </el-form-item>
+
+                <el-form-item v-else label="CPU 模型选择">
+                  <el-select v-model="settings.localCpuModelId" placeholder="选择本地模型" style="width: 100%">
+                    <el-option label="SmolLM2-135M (极轻量 / 内存占用低)" value="Xenova/SmolLM2-135M-Instruct" />
+                    <el-option label="Qwen2.5-0.5B (轻量 / 中文支持好)" value="Xenova/Qwen2.5-0.5B-Instruct" />
+                  </el-select>
+                  <div class="item-tip">CPU 模型首次运行会下载几百MB权重文件到浏览器缓存中。</div>
+                </el-form-item>
+                
+                <el-form-item v-if="localAiProgress > 0 || localAiStatus">
+                  <div style="width: 100%">
+                    <div class="progress-info">
+                      <span>{{ localAiStatus }}</span>
+                      <span v-if="localAiProgress > 0">{{ localAiProgress }}%</span>
+                    </div>
+                    <el-progress :percentage="localAiProgress" :stroke-width="10" striped striped-flow />
+                  </div>
+                </el-form-item>
+
+                <el-form-item>
+                  <el-button 
+                    type="primary" 
+                    :disabled="settings.localAiType === 'gpu' && !webgpuSupport.supported" 
+                    :loading="loadingLocal"
+                    @click="initLocalModel"
+                  >
+                    {{ loadingLocal ? '正在加载/下载模型...' : '预热/初始化本地模型' }}
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
+          </el-tabs>
         </el-card>
 
         <!-- 备份与恢复 -->
@@ -133,16 +205,47 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useDocumentsStore } from '@/stores/documents'
 import { Brush, Refresh, Box, Download, Upload, Connection, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { syncWithWebDAV } from '@/utils/webdav'
+import { localAiService } from '@/services/localAi'
 
 const settings = useSettingsStore()
 const documentsStore = useDocumentsStore()
 const testing = ref(false)
+
+// 本地 AI 状态
+const webgpuSupport = ref({ supported: true, message: '' })
+const loadingLocal = ref(false)
+const localAiProgress = ref(0)
+const localAiStatus = ref('')
+
+onMounted(async () => {
+  webgpuSupport.value = await localAiService.constructor.checkWebGPUSupport()
+})
+
+const initLocalModel = async () => {
+  loadingLocal.value = true
+  try {
+    await localAiService.getEngine(
+      settings.localAiType === 'gpu' ? settings.localModelId : settings.localCpuModelId,
+      settings.localAiType,
+      (report) => {
+        localAiProgress.value = report.progress
+        localAiStatus.value = report.statusText
+      }
+    )
+    ElMessage.success('本地模型加载成功！')
+  } catch (err) {
+    ElMessage.error('模型加载失败: ' + err.message)
+    console.error(err)
+  } finally {
+    loadingLocal.value = false
+  }
+}
 
 const resetColor = () => {
   settings.primaryColor = '#409eff'
@@ -266,5 +369,38 @@ const importData = (file) => {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.ai-tabs {
+  margin-top: -10px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.webgpu-warning {
+  margin-bottom: 20px;
+}
+
+.fallback-hint {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: var(--el-color-warning-light-9);
+  border-left: 4px solid var(--el-color-warning);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+}
+
+.item-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
 }
 </style>

@@ -173,7 +173,7 @@ export default defineConfig({
     watch: {
       usePolling: true,
       interval: 200,
-    }
+    },
   },
   resolve: {
     alias: {

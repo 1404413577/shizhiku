@@ -832,7 +832,7 @@ const addHeadingIds = () => {
 }
 
 .document-content {
-  line-height: 1.8;
+  line-height: var(--md-line-height, 1.8);
   transition: margin-right 0.3s ease;
 }
 
@@ -897,8 +897,8 @@ html {
 }
 
 .markdown-content {
-  font-size: 16px;
-  color: #333;
+  font-size: var(--md-font-size, 16px);
+  color: var(--el-text-color-primary, #333);
 }
 
 /* Markdown 内容样式 */
@@ -1062,7 +1062,7 @@ html {
   }
 
   .markdown-content {
-    font-size: 15px;
+    font-size: calc(var(--md-font-size, 16px) - 1px);
   }
 
   /* 移动端目录样式 */

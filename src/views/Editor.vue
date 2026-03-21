@@ -229,6 +229,7 @@ const editor = useEditor({
     ExcalidrawExtension,
     Markdown.configure({
       html: true,
+      transformPastedText: true,
       tightLists: true,
       tightListClass: 'tight',
       bulletListMarker: '-',

@@ -216,45 +216,64 @@ body {
 .code-block-wrapper {
   position: relative;
   margin: 16px 0;
-  border-radius: 6px;
-  background: var(--el-fill-color-light, #f6f8fa);
+  border-radius: 8px;
+  background: var(--el-bg-color-page, #f6f8fa);
+  border: 1px solid var(--el-border-color-lighter, #e1e4e8);
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 10px;
-  background: var(--el-fill-color, #e4e7ed);
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
+  padding: 6px 12px;
+  background: var(--el-fill-color-light, #eaedf1);
+  border-bottom: 1px solid var(--el-border-color-lighter, #e1e4e8);
 }
 
 .code-lang {
-  font-size: 12px;
-  color: var(--el-text-color-secondary, #909399);
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--el-text-color-regular, #5c6c7f);
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  letter-spacing: 0.5px;
 }
 
 .code-copy-btn {
-  background: transparent;
-  border: none;
-  color: var(--el-text-color-regular, #606266);
+  background: var(--el-bg-color, #ffffff);
+  border: 1px solid var(--el-border-color, #d1d5da);
+  color: var(--el-text-color-regular, #586069);
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 4px;
-  transition: all 0.2s;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .code-copy-btn:hover {
-  background: var(--el-fill-color-dark, #dcdfe6);
+  background: var(--el-fill-color-light, #f3f4f6);
+  border-color: var(--el-color-primary, #409eff);
   color: var(--el-color-primary, #409eff);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08);
+}
+
+.code-copy-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .code-copy-btn.copied {
   color: var(--el-color-success, #67c23a);
+  border-color: var(--el-color-success-light-5, #a4da89);
+  background: var(--el-color-success-light-9, #f0f9eb);
 }
 
 .code-block-wrapper pre {

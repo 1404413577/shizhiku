@@ -416,10 +416,10 @@ export const useDocumentsStore = defineStore('documents', {
       if (!id) return null
       try {
         let document = null
+        const docIndex = this.documents.findIndex(d => d.id === id)
 
         if (this.workspaceMode === 'local') {
           // 本地模式仅处理 content 修改
-          const docIndex = this.documents.findIndex(d => d.id === id)
           if (docIndex === -1) throw new Error('Local document not found in store')
           
           document = { ...this.documents[docIndex], ...updates }
@@ -429,7 +429,11 @@ export const useDocumentsStore = defineStore('documents', {
             document.updatedAt = new Date().toISOString()
           }
         } else {
-          document = await storage.saveDocument(id, updates)
+          if (docIndex !== -1) {
+            document = await storage.saveDocument(id, { ...this.documents[docIndex], ...updates })
+          } else {
+            document = await storage.saveDocument(id, updates)
+          }
         }
 
         const index = this.documents.findIndex(doc => doc.id === id)
