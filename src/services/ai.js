@@ -13,7 +13,7 @@ export class AIService {
     const aiEngine = settings.aiEngine || 'online'
     const localAiType = settings.localAiType || 'gpu'
     const localModelId = localAiType === 'gpu' 
-      ? (settings.localModelId || 'SmolLM2-135M-Instruct-q4f16_1-MLC')
+      ? (settings.localModelId || 'SmolLM2-135M-Instruct-q0f32-MLC')
       : (settings.localCpuModelId || 'Xenova/SmolLM2-135M-Instruct')
     return { apiKey, baseUrl, model, aiEngine, localAiType, localModelId }
   }

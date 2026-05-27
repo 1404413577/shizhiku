@@ -138,7 +138,7 @@
 
                 <el-form-item v-if="settings.localAiType === 'gpu'" label="GPU 模型选择">
                   <el-select v-model="settings.localModelId" placeholder="选择本地模型" style="width: 100%">
-                    <el-option label="SmolLM2-135M (轻量 / 运行快 / 推荐测试)" value="SmolLM2-135M-Instruct-q4f16_1-MLC" />
+                    <el-option label="SmolLM2-135M (轻量 / 运行快 / 推荐测试)" value="SmolLM2-135M-Instruct-q0f32-MLC" />
                     <el-option label="Llama-3.2-1B (中量 / 效果均衡)" value="Llama-3.2-1B-Instruct-q4f16_1-MLC" />
                   </el-select>
                 </el-form-item>
