@@ -59,14 +59,18 @@
           编辑
         </el-button>
 
-        <el-button
-          @click="exportDocument"
-          :icon="Download"
-          size="small"
-          plain
-        >
-          导出
-        </el-button>
+        <el-dropdown @command="handleExportCommand" trigger="click">
+          <el-button :icon="Download" size="small" plain>
+            导出<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="md"><el-icon><Document /></el-icon> Markdown (.md)</el-dropdown-item>
+              <el-dropdown-item command="html"><el-icon><Notebook /></el-icon> HTML (.html)</el-dropdown-item>
+              <el-dropdown-item command="pdf"><el-icon><Printer /></el-icon> PDF 打印</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
 
         <el-button
           @click="shareDocument"
@@ -220,7 +224,8 @@ import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { AIService } from '@/services/ai.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Download, Share, Expand, Fold, ArrowLeft, MagicStick } from '@element-plus/icons-vue'
+import { Edit, Download, Share, Expand, Fold, ArrowLeft, MagicStick, ArrowDown, Document, Notebook, Printer } from '@element-plus/icons-vue'
+import { exportAsMarkdown, exportAsHTML, exportAsPDF } from '@/utils/export.js'
 import { saveAs } from 'file-saver'
 
 // 在开发环境中引入调试工具
@@ -332,13 +337,14 @@ const editDocument = () => {
   router.push(`/editor/${currentDoc.value.id}`)
 }
 
-const exportDocument = () => {
+const handleExportCommand = (format) => {
   if (!currentDoc.value) return
-
-  const content = `# ${currentDoc.value.title}\n\n${currentDoc.value.content}`
-  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
-  saveAs(blob, `${currentDoc.value.title}.md`)
-  ElMessage.success('文档已导出')
+  const title = currentDoc.value.title
+  const content = currentDoc.value.content || ''
+  if (format === 'md') exportAsMarkdown(title, `# ${title}\n\n${content}`)
+  else if (format === 'html') exportAsHTML(title, `# ${title}\n\n${content}`)
+  else if (format === 'pdf') exportAsPDF(title)
+  ElMessage.success('导出完成')
 }
 
 const shareDocument = () => {
@@ -356,13 +362,12 @@ const copyToClipboard = async (text) => {
 
 const copyMarkdown = async () => {
   if (!currentDoc.value) return
-
   const content = `# ${currentDoc.value.title}\n\n${currentDoc.value.content}`
   await copyToClipboard(content)
 }
 
 const downloadMarkdown = () => {
-  exportDocument()
+  exportAsMarkdown(currentDoc.value.title, `# ${currentDoc.value.title}\n\n${currentDoc.value.content}`)
   shareDialogVisible.value = false
 }
 

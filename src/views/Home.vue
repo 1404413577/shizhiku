@@ -32,6 +32,11 @@
     <div class="charts-section" v-if="stats.total > 0">
       <h2>数据分析</h2>
       <div class="charts-grid">
+        <el-card class="chart-card chart-card-wide">
+          <template #header><span>知识词云</span></template>
+          <div class="chart-container" ref="wordCloudRef"></div>
+          <div v-if="wordCloudData.length === 0" class="chart-empty">暂无内容数据</div>
+        </el-card>
         <el-card class="chart-card">
           <template #header><span>标签分布</span></template>
           <div class="chart-container" ref="tagChartRef"></div>
@@ -63,48 +68,83 @@
     <div class="quick-actions">
       <h2>快速操作</h2>
       <div class="action-buttons">
-        <el-button 
-          type="primary" 
+        <el-button
+          type="primary"
           size="large"
           @click="createNewDocument"
           :icon="Plus"
         >
           新建文档
         </el-button>
-        
-        <el-button 
+
+        <el-button
           size="large"
           @click="$router.push('/search')"
           :icon="Search"
         >
           搜索文档
         </el-button>
-        
-        <el-button 
+
+        <el-button
           size="large"
           @click="importData"
           :icon="Upload"
         >
           导入数据
         </el-button>
+
+        <el-button
+          size="large"
+          @click="randomDocument"
+          :icon="Refresh"
+          v-if="stats.total > 0"
+        >
+          随便看看
+        </el-button>
       </div>
+      <div class="action-buttons" style="margin-top: 12px" v-if="stats.total > 0">
+        <el-button
+          size="small"
+          @click="toggleSelectMode"
+          :type="selectMode ? 'warning' : 'default'"
+          :icon="Select"
+        >
+          {{ selectMode ? '退出批量操作' : '批量操作' }}
+        </el-button>
+      </div>
+    </div>
+
+    <!-- 批量操作栏 -->
+    <div v-if="selectMode && selectedDocIds.size > 0" class="batch-bar">
+      <span class="batch-count">已选 {{ selectedDocIds.size }} 项</span>
+      <el-button size="small" :icon="CollectionTag" @click="batchAddTag">批量标签</el-button>
+      <el-button size="small" :icon="Download" @click="batchExport">批量导出</el-button>
+      <el-button size="small" type="danger" :icon="Delete" @click="batchDelete">批量删除</el-button>
+      <el-button size="small" @click="selectedDocIds.clear()">取消选择</el-button>
     </div>
 
     <div class="recent-documents" v-if="recentDocs.length > 0">
       <h2>最近编辑</h2>
       <div class="recent-list">
-        <el-card 
-          v-for="doc in recentDocs" 
+        <el-card
+          v-for="doc in recentDocs"
           :key="doc.id"
-          class="recent-item"
-          @click="viewDocument(doc)"
+          :class="['recent-item', { selected: selectedDocIds.has(doc.id) }]"
+          @click="selectMode ? toggleDocSelect(doc.id, $event) : viewDocument(doc)"
         >
+          <el-checkbox
+            v-if="selectMode"
+            :model-value="selectedDocIds.has(doc.id)"
+            class="select-checkbox"
+            @click.stop
+            @change="toggleDocSelect(doc.id)"
+          />
           <div class="recent-title">{{ doc.title }}</div>
           <div class="recent-date">{{ formatDate(doc.updatedAt) }}</div>
           <div class="recent-summary">{{ getDocumentSummary(doc) }}</div>
           <div class="recent-tags" v-if="doc.tags && doc.tags.length > 0">
-            <el-tag 
-              v-for="tag in doc.tags.slice(0, 3)" 
+            <el-tag
+              v-for="tag in doc.tags.slice(0, 3)"
               :key="tag"
               size="small"
               type="info"
@@ -145,6 +185,29 @@
       </div>
     </div>
 
+    <!-- 新建文档对话框（含模板选择） -->
+    <el-dialog v-model="showNewDocDialog" title="新建文档" width="600px" :close-on-click-modal="false">
+      <el-input v-model="newDocTitle" placeholder="文档标题" size="large" style="margin-bottom: 20px" />
+      <div class="template-label">选择模板（可选）</div>
+      <div class="template-grid">
+        <div
+          v-for="tpl in templates"
+          :key="tpl.id"
+          :class="['template-card', { active: selectedTemplate === tpl.id }]"
+          @click="selectedTemplate = tpl.id"
+        >
+          <span class="template-icon">{{ tpl.icon }}</span>
+          <span class="template-name">{{ tpl.name }}</span>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="showNewDocDialog = false">取消</el-button>
+        <el-button type="primary" @click="confirmCreateDocument" :disabled="!newDocTitle.trim()">
+          创建文档
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 导入文件对话框 -->
     <input
       ref="fileInput"
@@ -163,8 +226,11 @@ import { useDocumentsStore } from '@/stores/documents.js'
 import { markdownProcessor } from '@/utils/markdown.js'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Search, Upload } from '@element-plus/icons-vue'
+import { Plus, Search, Upload, Select, CollectionTag, Delete } from '@element-plus/icons-vue'
+import { exportMultipleAsJSON } from '@/utils/export.js'
+import { templates } from '@/utils/templates.js'
 import * as echarts from 'echarts'
+import 'echarts-wordcloud'
 import { useDark } from '@vueuse/core'
 
 const router = useRouter()
@@ -183,13 +249,15 @@ const tagChartRef = ref(null)
 const typeChartRef = ref(null)
 const trendChartRef = ref(null)
 const lengthChartRef = ref(null)
+const wordCloudRef = ref(null)
 const isDark = useDark()
 let heatmapInstance = null
 let tagChartInstance = null
 let typeChartInstance = null
 let trendChartInstance = null
 let lengthChartInstance = null
-const allChartInstances = () => [heatmapInstance, tagChartInstance, typeChartInstance, trendChartInstance, lengthChartInstance].filter(Boolean)
+let wordCloudInstance = null
+const allChartInstances = () => [heatmapInstance, tagChartInstance, typeChartInstance, trendChartInstance, lengthChartInstance, wordCloudInstance].filter(Boolean)
 
 const handleResize = () => allChartInstances().forEach(i => i.resize())
 
@@ -267,22 +335,137 @@ const contentLengthData = computed(() => {
   }
 })
 
-// 方法
-const createNewDocument = async () => {
-  try {
-    const { value: title } = await ElMessageBox.prompt('请输入文档标题', '新建文档', {
-      confirmButtonText: '创建',
-      cancelButtonText: '取消',
-      inputPattern: /.+/,
-      inputErrorMessage: '标题不能为空'
+// 图表数据 — 词云
+const stopWords = new Set([
+  '的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一',
+  '一个', '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有',
+  '看', '好', '自己', '这', '他', '她', '它', '们', '那', '些', '什么', '怎么',
+  '如何', '为什么', '可以', '这个', '那个', '还是', '但是', '因为', '所以',
+  '如果', '虽然', '而且', '然后', '之后', '已经', '比较', '非常', '真的', '觉得',
+  '知道', '可能', '应该', '需要', '能够', '进行', '使用', '通过', '对于', '关于',
+  '为了', '以及', '或者', '不过', '只是', '比如', '例如', '其中', '其他',
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'can', 'shall', 'to', 'of', 'in', 'for',
+  'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during',
+  'before', 'after', 'above', 'below', 'between', 'under', 'again',
+  'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why',
+  'how', 'all', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+  'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too',
+  'just', 'don', 'now', 'one', 'also', 'up', 'out', 'about', 'over', 'its'
+])
+
+const wordCloudData = computed(() => {
+  const wordFreq = {}
+  documentsStore.documents.forEach(doc => {
+    if (!doc.content) return
+    // 提取中英文词
+    const words = doc.content
+      .replace(/[#*[\]()`~>|\\\-_=:+@!]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .split(' ')
+      .filter(w => {
+        if (w.length < 2) return false
+        if (/^\d+$/.test(w)) return false
+        if (stopWords.has(w.toLowerCase())) return false
+        return true
+      })
+    words.forEach(w => {
+      wordFreq[w] = (wordFreq[w] || 0) + 1
     })
-    
-    const doc = await documentsStore.createDocument(title)
+  })
+  return Object.entries(wordFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 80)
+    .map(([name, value]) => ({ name, value }))
+})
+
+// 批量操作
+const selectMode = ref(false)
+const selectedDocIds = ref(new Set())
+
+const toggleSelectMode = () => {
+  selectMode.value = !selectMode.value
+  selectedDocIds.value = new Set()
+}
+
+const toggleDocSelect = (id) => {
+  const next = new Set(selectedDocIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedDocIds.value = next
+}
+
+const batchAddTag = async () => {
+  try {
+    const { value: tag } = await ElMessageBox.prompt('请输入要添加的标签', '批量添加标签', {
+      confirmButtonText: '确定', cancelButtonText: '取消', inputPlaceholder: '标签名'
+    })
+    if (!tag || !tag.trim()) return
+    for (const id of selectedDocIds.value) {
+      const doc = documentsStore.documents.find(d => d.id === id)
+      if (doc) {
+        const tags = [...(doc.tags || []), tag.trim()]
+        await documentsStore.saveDocument(id, { tags })
+      }
+    }
+    ElMessage.success(`已为 ${selectedDocIds.value.size} 个文档添加标签 "${tag}"`)
+    selectedDocIds.value = new Set()
+  } catch { /* cancel */ }
+}
+
+const batchExport = () => {
+  const docs = documentsStore.documents.filter(d => selectedDocIds.value.has(d.id))
+  if (docs.length === 0) return
+  exportMultipleAsJSON(docs)
+  ElMessage.success(`已导出 ${docs.length} 个文档`)
+}
+
+const batchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedDocIds.value.size} 个文档吗？此操作不可恢复。`,
+      '批量删除',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'error' }
+    )
+    for (const id of selectedDocIds.value) {
+      await documentsStore.deleteDocument(id)
+    }
+    ElMessage.success(`已删除 ${selectedDocIds.value.size} 个文档`)
+    selectedDocIds.value = new Set()
+    selectMode.value = false
+  } catch { /* cancel */ }
+}
+
+// 随机发现
+const randomDocument = () => {
+  const docs = documentsStore.documents.filter(d => !d.isFolder && d.content)
+  if (docs.length === 0) return
+  const doc = docs[Math.floor(Math.random() * docs.length)]
+  router.push(`/view/${encodeURIComponent(doc.id)}`)
+}
+
+// 新建文档对话框
+const showNewDocDialog = ref(false)
+const newDocTitle = ref('')
+const selectedTemplate = ref('blank')
+
+const createNewDocument = () => {
+  newDocTitle.value = ''
+  selectedTemplate.value = 'blank'
+  showNewDocDialog.value = true
+}
+
+const confirmCreateDocument = async () => {
+  if (!newDocTitle.value.trim()) return
+  try {
+    const tpl = templates.find(t => t.id === selectedTemplate.value)
+    const content = tpl ? tpl.content : ''
+    const doc = await documentsStore.createDocument(newDocTitle.value.trim(), content)
+    showNewDocDialog.value = false
     router.push(`/editor/${encodeURIComponent(doc.id)}`)
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('创建文档失败')
-    }
+    ElMessage.error('创建文档失败')
   }
 }
 
@@ -513,12 +696,54 @@ const renderLengthChart = () => {
   }))
 }
 
+const renderWordCloud = () => {
+  if (!wordCloudRef.value) return
+  if (!wordCloudInstance) wordCloudInstance = echarts.init(wordCloudRef.value, isDark.value ? 'dark' : 'light')
+
+  const data = wordCloudData.value
+  if (data.length === 0) { wordCloudInstance.clear(); return }
+
+  wordCloudInstance.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { show: true, formatter: '{b}: {c} 次' },
+    series: [{
+      type: 'wordCloud',
+      shape: 'circle',
+      left: 'center',
+      top: 'center',
+      width: '90%',
+      height: '90%',
+      sizeRange: [12, 40],
+      rotationRange: [-30, 30],
+      rotationStep: 15,
+      gridSize: 8,
+      drawOutOfBound: false,
+      textStyle: {
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontWeight: 'normal',
+        color: () => {
+          const colors = isDark.value
+            ? ['#79bbff', '#95d475', '#e6a23c', '#f56c6c', '#b37feb', '#5cdbd3', '#ff85c0', '#73d13d']
+            : ['#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#8b5cf6', '#06b6d4', '#ec4899', '#22c55e']
+          return colors[Math.floor(Math.random() * colors.length)]
+        }
+      },
+      emphasis: {
+        focus: 'self',
+        textStyle: { textShadowBlur: 10, textShadowColor: '#333' }
+      },
+      data
+    }]
+  })
+}
+
 const renderAllCharts = () => {
   renderHeatmap()
   renderTagChart()
   renderTypeChart()
   renderTrendChart()
   renderLengthChart()
+  renderWordCloud()
 }
 
 const disposeAllCharts = () => {
@@ -528,6 +753,7 @@ const disposeAllCharts = () => {
   typeChartInstance = null
   trendChartInstance = null
   lengthChartInstance = null
+  wordCloudInstance = null
 }
 
 // 初始化
@@ -651,6 +877,14 @@ watch([() => documentsStore.documents, isDark], () => {
   position: relative;
 }
 
+.chart-card-wide {
+  grid-column: 1 / -1;
+}
+
+.chart-card-wide .chart-container {
+  height: 320px;
+}
+
 .chart-empty {
   position: absolute;
   top: 50%;
@@ -713,11 +947,42 @@ watch([() => documentsStore.documents, isDark], () => {
 .recent-item {
   cursor: pointer;
   transition: all 0.2s;
+  position: relative;
 }
 
 .recent-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.recent-item.selected {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-5);
+}
+
+.select-checkbox {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  background: var(--el-color-primary-light-9);
+  border-radius: 8px;
+  border: 1px solid var(--el-color-primary-light-5);
+}
+
+.batch-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-color-primary);
+  margin-right: 8px;
 }
 
 .recent-title {
@@ -791,6 +1056,50 @@ watch([() => documentsStore.documents, isDark], () => {
   margin: 0;
   color: #666;
   line-height: 1.5;
+}
+
+.template-label {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  margin-bottom: 12px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.template-card:hover {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+
+.template-card.active {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-8);
+  box-shadow: 0 0 0 2px var(--el-color-primary-light-5);
+}
+
+.template-icon {
+  font-size: 24px;
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {

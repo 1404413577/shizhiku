@@ -28,6 +28,13 @@
           >
             新建
           </el-button>
+          <el-button
+            @click="openQuickNote"
+            :icon="Edit"
+            circle
+            size="small"
+            title="快捷记录"
+          />
         </div>
       </div>
 
@@ -554,6 +561,26 @@
     style="display: none"
     @change="handleFileImport"
   />
+
+  <!-- 快捷笔记对话框 -->
+  <el-dialog v-model="showQuickNote" title="快捷记录" width="500px" :close-on-click-modal="false">
+    <el-input v-model="quickNoteTitle" placeholder="标题（可选）" size="large" style="margin-bottom: 16px" />
+    <el-input
+      v-model="quickNoteContent"
+      type="textarea"
+      :rows="8"
+      placeholder="记录你的想法..."
+    />
+    <template #footer>
+      <el-button @click="showQuickNote = false">取消</el-button>
+      <el-button type="primary" @click="confirmQuickNote" :disabled="!quickNoteContent.trim()">
+        保存
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 快捷键面板 -->
+  <ShortcutsPanel />
 </template>
 
 <script setup>
@@ -562,6 +589,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
 import { FSService } from '@/services/fs.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ShortcutsPanel from '@/components/ShortcutsPanel.vue'
 import { Plus, Edit, Delete, Document, Search, House, InfoFilled, ChatLineRound, Menu, Refresh, Moon, Sunny, Folder, DocumentAdd, FolderAdd, Top, Star, StarFilled, Share, Setting, FolderOpened, FolderChecked } from '@element-plus/icons-vue'
 import { useDark, useToggle } from '@vueuse/core'
 import { markdownProcessor } from '@/utils/markdown.js'
@@ -583,6 +611,29 @@ const router = useRouter()
 const route = useRoute()
 const documentsStore = useDocumentsStore()
 const fileInput = ref(null)
+
+// 快捷笔记
+const showQuickNote = ref(false)
+const quickNoteTitle = ref('')
+const quickNoteContent = ref('')
+
+const openQuickNote = () => {
+  quickNoteTitle.value = ''
+  quickNoteContent.value = ''
+  showQuickNote.value = true
+}
+
+const confirmQuickNote = async () => {
+  if (!quickNoteContent.value.trim()) return
+  try {
+    const title = quickNoteTitle.value.trim() || '快捷笔记 ' + new Date().toLocaleString('zh-CN')
+    await documentsStore.createDocument(title, quickNoteContent.value)
+    showQuickNote.value = false
+    ElMessage.success('快捷笔记已保存')
+  } catch (err) {
+    ElMessage.error('保存失败')
+  }
+}
 const docTreeRef = ref(null)
 
 // 响应式数据

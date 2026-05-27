@@ -59,6 +59,19 @@
           表格
         </el-button>
 
+        <el-dropdown @command="handleEditorExport" trigger="click">
+          <el-button :icon="Download" size="small" plain>
+            导出<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="md"><el-icon><Document /></el-icon> Markdown (.md)</el-dropdown-item>
+              <el-dropdown-item command="html"><el-icon><Notebook /></el-icon> HTML (.html)</el-dropdown-item>
+              <el-dropdown-item command="pdf"><el-icon><Printer /></el-icon> PDF 打印</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+
         <el-button
           @click="cycleEditorMode"
           :type="editorMode !== 'preview' ? 'primary' : 'default'"
@@ -231,7 +244,8 @@ import { markdownProcessor } from '@/utils/markdown.js'
 import { AIService } from '@/services/ai.js'
 import { ImageService } from '@/services/image.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Document, Plus, Edit, Reading, ArrowLeft, MagicStick, Grid, View, FullScreen, Close } from '@element-plus/icons-vue'
+import { Document, Plus, Edit, Reading, ArrowLeft, MagicStick, Grid, View, FullScreen, Close, Download, ArrowDown, Printer, Notebook } from '@element-plus/icons-vue'
+import { exportAsMarkdown, exportAsHTML, exportAsPDF } from '@/utils/export.js'
 
 // Tiptap imports
 import { EditorContent, useEditor, mergeAttributes } from '@tiptap/vue-3'
@@ -682,6 +696,15 @@ const toggleTablePicker = () => {
   showTablePicker.value = !showTablePicker.value
   tablePickerRows.value = 3
   tablePickerCols.value = 3
+}
+
+const handleEditorExport = (format) => {
+  const title = documentTitle.value || '未命名文档'
+  const content = documentContent.value || ''
+  const md = `# ${title}\n\n${content}`
+  if (format === 'md') exportAsMarkdown(title, md)
+  else if (format === 'html') exportAsHTML(title, md)
+  else if (format === 'pdf') exportAsPDF(title)
 }
 
 const insertTable = () => {
