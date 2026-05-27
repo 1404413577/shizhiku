@@ -103,6 +103,16 @@
                 <el-form-item label="默认模型">
                   <el-input v-model="settings.aiModel" placeholder="gpt-3.5-turbo (或 deepseek-chat 等)" />
                 </el-form-item>
+                <el-form-item>
+                  <el-button
+                    type="primary"
+                    :loading="testingOnline"
+                    :disabled="!settings.aiBaseUrl || !settings.aiApiKey"
+                    @click="confirmAndTestApi"
+                  >
+                    确定并测试
+                  </el-button>
+                </el-form-item>
               </el-form>
             </el-tab-pane>
 
@@ -145,8 +155,8 @@
 
                 <el-form-item v-else label="CPU 模型选择">
                   <el-select v-model="settings.localCpuModelId" placeholder="选择本地模型" style="width: 100%">
-                    <el-option label="SmolLM2-135M (极轻量 / 内存占用低)" value="Xenova/SmolLM2-135M-Instruct" />
-                    <el-option label="Qwen2.5-0.5B (轻量 / 中文支持好)" value="Xenova/Qwen2.5-0.5B-Instruct" />
+                    <el-option label="Qwen1.5-0.5B-Chat (0.5B / 中文支持好)" value="Xenova/Qwen1.5-0.5B-Chat" />
+                    <el-option label="TinyLlama-1.1B-Chat (1.1B / 通用对话)" value="Xenova/TinyLlama-1.1B-Chat-v1.0" />
                   </el-select>
                   <div class="item-tip">CPU 模型首次运行会下载几百MB权重文件到浏览器缓存中。</div>
                 </el-form-item>
@@ -170,6 +180,15 @@
                   >
                     {{ loadingLocal ? '正在加载/下载模型...' : '预热/初始化本地模型' }}
                   </el-button>
+                  <el-button
+                    type="primary"
+                    :loading="testingLocal"
+                    :disabled="(settings.localAiType === 'gpu' && !webgpuSupport.supported) || !(settings.localAiType === 'gpu' ? settings.localModelId : settings.localCpuModelId)"
+                    style="margin-left: 12px"
+                    @click="confirmAndTestLocal"
+                  >
+                    确定并测试
+                  </el-button>
                 </el-form-item>
               </el-form>
             </el-tab-pane>
@@ -189,6 +208,16 @@
                 </el-form-item>
                 <el-form-item label="默认选用模型">
                   <el-input v-model="settings.ollamaModel" placeholder="例如：deepseek-r1:1.5b (留空将在对话页选择)" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button
+                    type="primary"
+                    :loading="testingOllama"
+                    :disabled="!settings.ollamaBaseUrl"
+                    @click="confirmAndTestOllama"
+                  >
+                    确定并测试
+                  </el-button>
                 </el-form-item>
               </el-form>
             </el-tab-pane>
@@ -229,12 +258,16 @@ import { useSettingsStore } from '@/stores/settings'
 import { useDocumentsStore } from '@/stores/documents'
 import { Brush, Refresh, Box, Download, Upload, Connection, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { AIService } from '@/services/ai'
 import { syncWithWebDAV } from '@/utils/webdav'
 import { localAiService } from '@/services/localAi'
 
 const settings = useSettingsStore()
 const documentsStore = useDocumentsStore()
 const testing = ref(false)
+const testingOnline = ref(false)
+const testingLocal = ref(false)
+const testingOllama = ref(false)
 
 // 本地 AI 状态
 const webgpuSupport = ref({ supported: true, message: '' })
@@ -266,6 +299,61 @@ const initLocalModel = async () => {
   }
 }
 
+const confirmAndTestLocal = async () => {
+  const type = settings.localAiType === 'gpu' ? 'gpu' : 'cpu'
+  const modelId = type === 'gpu' ? settings.localModelId : settings.localCpuModelId
+  if (!modelId) {
+    ElMessage.warning('请先选择本地模型')
+    return
+  }
+
+  testingLocal.value = true
+  try {
+    // 尝试初始化引擎并发送简单请求验证
+    await localAiService.getEngine(modelId, type, (report) => {
+      localAiProgress.value = report.progress
+      localAiStatus.value = report.statusText
+    })
+
+    const reply = await localAiService.chatCompletion(modelId, type, [
+      { role: 'user', content: '请返回一条简短的回复，确认本地模型可用。' }
+    ])
+
+    ElMessage.success('本地模型测试成功：' + (reply ? reply.slice(0, 120) : '已连接'))
+  } catch (err) {
+    ElMessage.error('本地模型测试失败: ' + (err.message || err))
+    console.error(err)
+  } finally {
+    testingLocal.value = false
+  }
+}
+
+const confirmAndTestOllama = async () => {
+  if (!settings.ollamaBaseUrl) {
+    ElMessage.warning('请输入 Ollama 服务地址')
+    return
+  }
+
+  testingOllama.value = true
+  try {
+    if (settings.ollamaModel) {
+      const reply = await AIService.chatCompletion([
+        { role: 'user', content: '请返回一条简短的回复，确认 Ollama 连接是否正常。' }
+      ], null, null, { model: settings.ollamaModel })
+      ElMessage.success('Ollama 测试成功：' + (reply ? reply.slice(0, 120) : '已连接'))
+    } else {
+      // 若未指定模型，尝试列出模型以验证连接
+      const models = await AIService.listOllamaModels()
+      ElMessage.success('Ollama 可访问，发现模型数量：' + (models.length || 0))
+    }
+  } catch (err) {
+    ElMessage.error('Ollama 测试失败: ' + (err.message || err))
+    console.error(err)
+  } finally {
+    testingOllama.value = false
+  }
+}
+
 const resetColor = () => {
   settings.primaryColor = '#409eff'
 }
@@ -283,6 +371,33 @@ const testWebDAVConnection = async () => {
     ElMessage.error('连接失败: ' + err.message)
   } finally {
     testing.value = false
+  }
+}
+
+const confirmAndTestApi = async () => {
+  if (!settings.aiBaseUrl) {
+    ElMessage.warning('请输入 API Base URL')
+    return
+  }
+  if (!settings.aiApiKey) {
+    ElMessage.warning('请输入 API Key')
+    return
+  }
+
+  testingOnline.value = true
+  try {
+    // 使用一个简短的提示验证接口是否可用
+    const reply = await AIService.chatCompletion([
+      { role: 'user', content: '请返回一条简短的回复，确认连接是否正常。' }
+    ], null, null, { model: settings.aiModel })
+
+    const snippet = (reply || '').slice(0, 120)
+    ElMessage.success('在线 API 测试成功：' + (snippet || '已连接'))
+  } catch (err) {
+    ElMessage.error('在线 API 测试失败: ' + (err.message || err))
+    console.error(err)
+  } finally {
+    testingOnline.value = false
   }
 }
 

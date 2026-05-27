@@ -23,7 +23,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const aiEngine = ref(localStorage.getItem('setting-ai-engine') || 'online') // online | local
   const localAiType = ref(localStorage.getItem('setting-local-ai-type') || 'gpu') // gpu | cpu
   const localModelId = ref(localStorage.getItem('setting-local-model-id') || 'SmolLM2-135M-Instruct-q0f32-MLC')
-  const localCpuModelId = ref(localStorage.getItem('setting-local-cpu-model-id') || 'Xenova/SmolLM2-135M-Instruct')
+  const localCpuModelId = ref(localStorage.getItem('setting-local-cpu-model-id') || 'Xenova/Qwen1.5-0.5B-Chat')
   const ollamaBaseUrl = ref(localStorage.getItem('setting-ollama-base-url') || 'http://localhost:11434')
   const ollamaModel = ref(localStorage.getItem('setting-ollama-model') || '')
 
