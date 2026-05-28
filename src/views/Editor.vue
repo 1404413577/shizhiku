@@ -4,10 +4,8 @@
     'split-view': editorMode === 'split',
     'focus-mode': isFocusMode
   }">
-    <!-- 预览区阅读进度条 -->
     <div v-show="editorMode === 'preview'" class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
 
-    <!-- 工具栏 -->
     <div class="toolbar" v-show="!isFocusMode">
       <div class="toolbar-left">
         <el-button
@@ -101,7 +99,6 @@
       </div>
     </div>
 
-    <!-- 标签编辑 -->
     <div class="tags-section" v-show="!isFocusMode">
       <el-tag
         v-for="tag in documentTags"
@@ -135,9 +132,7 @@
       </el-button>
     </div>
 
-    <!-- 编辑器 + 预览 + TOC 区域 -->
     <div class="editor-container">
-      <!-- 左侧编辑器 -->
       <div v-show="editorMode !== 'preview'" class="editor-panel" :class="{ split: editorMode === 'split' }">
         <editor-content
           v-if="editor"
@@ -173,7 +168,6 @@
         </bubble-menu>
       </div>
 
-      <!-- 右侧预览区 -->
       <div v-show="editorMode !== 'edit'" ref="previewRef" class="preview-panel" :class="{ split: editorMode === 'split' }" @scroll="handleTocScroll">
         <el-scrollbar class="content-scrollbar" @scroll="handlePreviewScroll">
           <div
@@ -184,7 +178,6 @@
         </el-scrollbar>
       </div>
 
-      <!-- TOC 侧边栏 -->
       <div v-if="tocHeadings.length > 0 && !isFocusMode" class="toc-sidebar">
         <div class="toc-title">目录</div>
         <div class="toc-list">
@@ -200,7 +193,6 @@
       </div>
     </div>
 
-    <!-- 状态栏 -->
     <div class="status-bar" v-show="!isFocusMode">
       <span>字符数: {{ documentContent.length }}</span>
       <span>行数: {{ lineCount }}</span>
@@ -208,13 +200,11 @@
       <span v-if="lastSaved">最后保存: {{ formatTime(lastSaved) }}</span>
     </div>
 
-    <!-- 专注模式退出按钮 -->
     <div v-if="isFocusMode" class="focus-exit-bar" @click="toggleFocusMode">
       <el-icon><Close /></el-icon>
       <span>退出专注模式 (Esc)</span>
     </div>
 
-    <!-- 表格插入选择器 -->
     <teleport to="body">
       <div v-if="showTablePicker" class="table-picker-overlay" @click="showTablePicker = false">
         <div class="table-picker-popover" @click.stop>
@@ -255,6 +245,14 @@ import Placeholder from '@tiptap/extension-placeholder'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
+
+// Table imports (在此处添加)
+// ✅ 正确写法（加了大括号）
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
+
 import { Commands, suggestionConfig } from '@/utils/suggestion.js'
 import { ExcalidrawExtension } from '@/utils/excalidrawExtension.js'
 import { Markdown } from 'tiptap-markdown'
@@ -324,6 +322,17 @@ const editor = useEditor({
   content: '',
   extensions: [
     StarterKit,
+    // --- 注册表格相关扩展 ---
+    Table.configure({
+      resizable: true,
+      HTMLAttributes: {
+        class: 'tiptap-table',
+      },
+    }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    // ----------------------
     ExcalidrawExtension,
     Markdown.configure({
       html: true,
@@ -707,23 +716,18 @@ const handleEditorExport = (format) => {
   else if (format === 'pdf') exportAsPDF(title)
 }
 
+// --- 使用原生命令插入表格 ---
 const insertTable = () => {
   if (!editor.value) return
   const rows = tablePickerRows.value
   const cols = tablePickerCols.value
 
-  // 构建 Markdown 表格
-  let md = '\n'
-  // 表头
-  md += '|' + ' 列 |'.repeat(cols) + '\n'
-  // 分隔行
-  md += '|' + ' --- |'.repeat(cols) + '\n'
-  // 数据行
-  for (let i = 1; i < rows; i++) {
-    md += '|' + '  |'.repeat(cols) + '\n'
-  }
+  editor.value.chain().focus().insertTable({
+    rows: rows,
+    cols: cols,
+    withHeaderRow: true
+  }).run()
 
-  editor.value.chain().focus().insertContent(md).run()
   showTablePicker.value = false
 }
 
@@ -1035,6 +1039,38 @@ watch(() => route.params.id, async (newId) => {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+/* --- Tiptap 表格编辑器基础样式 --- */
+.tiptap-editor :deep(table) {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 16px 0;
+  overflow: hidden;
+}
+.tiptap-editor :deep(table td),
+.tiptap-editor :deep(table th) {
+  min-width: 1em;
+  border: 1px solid var(--el-border-color);
+  padding: 8px 12px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.tiptap-editor :deep(table th) {
+  font-weight: 600;
+  text-align: left;
+  background-color: var(--el-fill-color-light);
+}
+.tiptap-editor :deep(.column-resize-handle) {
+  background-color: var(--el-color-primary);
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  pointer-events: none;
+  top: 0;
+  width: 4px;
 }
 
 /* 列表样式适配 */
