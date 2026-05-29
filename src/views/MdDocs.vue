@@ -1,9 +1,7 @@
 <template>
   <div class="md-docs" :class="{ 'is-mobile': isMobile }">
-    <!-- 阅读进度条 -->
     <div class="reading-progress-bar" :style="{ width: readingProgress + '%' }"></div>
     
-    <!-- 左侧文档列表 -->
     <aside class="sidebar" v-show="!isMobile || mobileView === 'list'">
       <div class="sidebar-header">
         <h3 class="sidebar-title">
@@ -43,7 +41,6 @@
           </div>
         </el-scrollbar>
 
-        <!-- 空状态 -->
         <div v-if="filtered.length === 0" class="empty-list">
           <el-empty
             :image-size="60"
@@ -53,7 +50,6 @@
       </div>
     </aside>
 
-    <!-- 右侧内容区域 -->
     <main class="content" v-show="!isMobile || mobileView === 'content'">
       <div v-if="current" class="content-wrapper">
         <div class="content-header">
@@ -103,7 +99,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+// 🚨 引入 shallowRef 替换原来的 ref
+import { ref, shallowRef, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
 import { usePageSEO } from '@/composables/useSEO.js'
@@ -142,7 +139,9 @@ usePageSEO({
 const modules = import.meta.glob('/docs/**/*.md', { eager: true })
 
 const docs = Object.entries(modules).map(([path, comp]) => ({ path, comp: comp.default || comp }))
-const current = ref(docs[0]?.comp || null)
+
+// 🚨 使用 shallowRef 存储 Vue 组件，解决性能警告
+const current = shallowRef(docs[0]?.comp || null)
 const activeKey = ref(docs[0]?.path || '')
 const query = ref('')
 const readingProgress = ref(0) // 阅读进度
@@ -256,7 +255,7 @@ watch(() => current.value, () => {
 .md-docs {
   display: grid;
   grid-template-columns: 320px 1fr;
-  height: calc(100vh - 50px); /* 减去顶部导航栏高度 */
+  height: calc(100vh - 50px);
   background: var(--el-bg-color-page);
   gap: 0;
 }

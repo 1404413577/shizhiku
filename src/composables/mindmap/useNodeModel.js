@@ -1,6 +1,3 @@
-/**
- * 思维导图节点数据模型
- */
 import { ref } from 'vue'
 
 let idCounter = 0
@@ -9,10 +6,10 @@ export function genId() {
   return `node_${Date.now()}_${idCounter++}`
 }
 
-export function createNode(title, level = 0, children = []) {
+export function createNode(topic, level = 0, children = []) {
   return {
     id: genId(),
-    title,
+    topic, // 统一使用 topic 字段以兼容之前写的组件
     children,
     collapsed: false,
     style: null,
@@ -59,6 +56,8 @@ export function createSampleData() {
       createNode('快捷键支持', 2),
     ]),
   ])
+  // 标记根节点特殊样式
+  root.isRoot = true 
   return root
 }
 
@@ -82,16 +81,47 @@ export function findParent(id, root) {
   return null
 }
 
-export function collectAllNodes(root) {
-  const nodes = []
-  function walk(node) {
-    nodes.push(node)
-    if (node.children) {
-      for (const child of node.children) {
-        walk(child)
-      }
+/**
+ * 🚨 新增：包装为标准的 Vue Composable，提供增删改查方法
+ */
+export function useNodeModel() {
+  // 初始化渲染示例数据
+  const nodes = ref(createSampleData()) 
+  const activeNode = ref(null)
+
+  const addNode = (targetId, type = 'child') => {
+    if (type === 'child') {
+      const parent = findNode(targetId, nodes.value)
+      if (!parent) return
+      if (!parent.children) parent.children = []
+      parent.children.push(createNode('新建节点', parent._level + 1))
+      parent.collapsed = false // 强制展开
+    } else if (type === 'sibling') {
+      const parent = findParent(targetId, nodes.value)
+      if (!parent) return // 根节点无法添加同级
+      parent.children.push(createNode('新建节点', parent._level))
     }
   }
-  walk(root)
-  return nodes
+
+  const updateNode = (id, payload) => {
+    const node = findNode(id, nodes.value)
+    if (node) {
+      Object.assign(node, payload)
+    }
+  }
+
+  const deleteNode = (id) => {
+    const parent = findParent(id, nodes.value)
+    if (parent) {
+      parent.children = parent.children.filter(n => n.id !== id)
+    }
+  }
+
+  return {
+    nodes,
+    activeNode,
+    addNode,
+    updateNode,
+    deleteNode
+  }
 }

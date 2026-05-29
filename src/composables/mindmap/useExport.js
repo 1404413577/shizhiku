@@ -154,3 +154,37 @@ export function downloadPNG(pngBlob) {
   a.click()
   URL.revokeObjectURL(pngUrl)
 }
+
+
+// ...（上面保留你原有的 exportAsPNG, exportAsJSON 等代码完全不变）
+
+/**
+ * 🚨 新增：包装为标准的 Vue Composable Hook，供组件调用
+ * @param {Ref} layoutNodes - 画布上的所有节点数据 (响应式 ref)
+ */
+export function useExport(layoutNodes) {
+  const exportToImage = () => {
+    // 自动在 DOM 中寻找刚才我们在 MindMapCanvas 里定义的 SVG 连线层
+    const svgRef = document.querySelector('.mindmap-svg-layer')
+    
+    if (!svgRef) {
+      ElMessage.warning('找不到画布，导出失败')
+      return Promise.reject(new Error('SVG not found'))
+    }
+
+    // 解包响应式数据
+    const flatNodes = layoutNodes?.value || []
+    
+    // 给定一个默认的背景色（你可以根据实际主题修改）
+    const currentTheme = { bg: '#f6f8fa' } 
+
+    // 调用你原有的核心导出逻辑
+    return exportAsPNG(svgRef, flatNodes, currentTheme)
+  }
+
+  return {
+    exportToImage,
+    exportAsJSON,
+    importFromJSON
+  }
+}
