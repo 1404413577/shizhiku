@@ -69,9 +69,11 @@ const routes = [
 
 const router = createRouter({
   // 使用 Hash 模式，非常适合部署到 GitHub Pages 或无需服务端配置的环境
-  history: createWebHashHistory(import.meta.env.BASE_URL),
+  history: createWebHashHistory(),
   routes
 })
+
+
 
 // 全局前置路由守卫
 router.beforeEach((to, from, next) => {
