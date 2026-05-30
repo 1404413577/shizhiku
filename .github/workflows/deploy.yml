@@ -3,25 +3,50 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main
+      - main # 当你推送 main 分支时触发
+  workflow_dispatch: # 允许你在网页端手动点击运行
 
+# 必须的环境权限设置
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+# 保证每次只有一个部署任务在运行
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
-
-      - name: Install and Build 🔧
-        run: |
-          npm install
-          npm run build
-
-      - name: Deploy 🚀
-        uses: peaceiris/actions-gh-pages@v3
+        
+      - name: Setup Node.js 🔧
+        uses: actions/setup-node@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          node-version: 20 # 使用稳定的 Node 版本
+          cache: 'npm'
+          
+      - name: Install Dependencies 📦
+        run: npm install
+        
+      - name: Build Project 🏗️
+        run: npm run build
+        
+      - name: Setup GitHub Pages ⚙️
+        uses: actions/configure-pages@v4
+        
+      - name: Upload Artifact 📤
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist' # 告诉 GitHub 把 dist 文件夹作为网页包上传
+          
+      - name: Deploy to GitHub Pages 🚀
+        id: deployment
+        uses: actions/deploy-pages@v4
