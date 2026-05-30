@@ -23,6 +23,7 @@
       :canGoBack="canGoBack"
       @save="saveDocument"
       @aiWrite="handleAIWrite"
+      @stopAIWrite="stopAIWrite"
       @goBack="goBack"
       @export="handleEditorExport"
       @cycleMode="cycleEditorMode"
@@ -241,6 +242,7 @@ const previewRef = ref(null);
 const aiLoading = ref(false);
 const aiWritingLoading = ref(false);
 const tocActiveIndex = ref(0);
+const aiAbortController = ref(null);
 
 const LazyImage = Image.extend({
   renderHTML({ HTMLAttributes }) {
@@ -493,25 +495,41 @@ const handleAIWrite = async () => {
     editor.value?.commands.setContent("");
     documentContent.value = "";
 
+    // 创建用于中止请求的 AbortController
+    aiAbortController.value = new AbortController();
+
+    ElMessage.info("正在生成文档内容，请稍候...");
+
     const systemPrompt = `你是一个专业的文档撰写助手。请根据用户提供的标题，撰写一篇完整、结构清晰的Markdown文档。要求：\n1. 使用适当的标题层级（##、###）\n2. 包含段落、列表、代码块等丰富的内容结构\n3. 内容专业、准确、有条理\n4. 直接返回Markdown内容，不要包含"好的"、"以下是"等开头语`;
 
-    await AIService.chatCompletion(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `标题：${title}` },
-      ],
-      (_delta, fullText) => {
-        editor.value?.commands.setContent(fullText);
-        documentContent.value = fullText;
-      },
-    );
-    await saveDocument();
-    ElMessage.success("AI 帮写完成");
+    try {
+      await AIService.chatCompletion(
+        [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `标题：${title}` },
+        ],
+        (_delta, fullText) => {
+          editor.value?.commands.setContent(fullText);
+          documentContent.value = fullText;
+        },
+        null,
+        { signal: aiAbortController.value.signal },
+      );
+      await saveDocument();
+      ElMessage.success("AI 帮写完成");
+    } catch (err) {
+      if (err.name === "AbortError") {
+        ElMessage.warning("已停止生成");
+      } else {
+        throw err;
+      }
+    }
   } catch (err) {
     if (err !== "cancel" && err !== "close")
       ElMessage.error(err.message || "AI 帮写失败");
   } finally {
     aiWritingLoading.value = false;
+    aiAbortController.value = null;
   }
 };
 
@@ -543,6 +561,10 @@ const saveDocument = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const stopAIWrite = () => {
+  aiAbortController.value?.abort();
 };
 
 const handleImageUpload = async (file) => {

@@ -19,6 +19,7 @@
       />
       <el-button type="primary" @click="$emit('save')" :loading="saving" :icon="Document" size="small" round>保存</el-button>
       <el-button type="success" :icon="MagicStick" @click="$emit('aiWrite')" :loading="aiWritingLoading" size="small" round>AI帮写</el-button>
+      <el-button v-if="aiWritingLoading" type="danger" @click="$emit('stopAIWrite')" size="small" round>停止生成</el-button>
     </div>
 
     <div class="toolbar-right">
@@ -84,7 +85,7 @@ defineProps({
   canGoBack: Boolean
 })
 
-const emit = defineEmits(['update:title', 'save', 'aiWrite', 'goBack', 'export', 'cycleMode', 'toggleFocus', 'viewDocument', 'insertTable'])
+const emit = defineEmits(['update:title', 'save', 'aiWrite', 'stopAIWrite', 'goBack', 'export', 'cycleMode', 'toggleFocus', 'viewDocument', 'insertTable'])
 
 const showTablePicker = ref(false)
 const tablePickerRows = ref(3)
