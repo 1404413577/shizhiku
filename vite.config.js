@@ -27,9 +27,10 @@ try {
   console.warn('无法按需导入 docs-loader:', e && e.message)
 }
 const isVercel = process.env.VERCEL === '1';
+const isPreview = process.argv.includes('preview');
 // https://vite.dev/config/
 export default defineConfig({
-  base: isVercel ? '/' : '/shizhiku/',
+  base: isVercel ? '/' : (isPreview ? '/' : '/shizhiku/'),
   define: {
     'process.env.IS_PREACT': JSON.stringify('false'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
