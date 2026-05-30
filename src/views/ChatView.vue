@@ -136,6 +136,13 @@
           >
             发送
           </el-button>
+          <el-button
+            v-if="isGenerating"
+            type="danger"
+            @click="stopGeneration"
+          >
+            停止生成
+          </el-button>
         </div>
       </div>
     </div>
@@ -164,6 +171,7 @@ const userInput = ref('')
 const isGenerating = ref(false)
 const currentReply = ref('')
 const chatBodyRef = ref(null)
+const abortController = ref(null)
 
 // 安全解析 localStorage 中的 JSON
 // 安全解析 localStorage 中的 JSON
@@ -471,6 +479,13 @@ const trimHistory = (messages) => {
   return selected
 }
 
+// 停止生成
+const stopGeneration = () => {
+  if (abortController.value) {
+    abortController.value.abort()
+  }
+}
+
 // 发送消息
 const sendMessage = async () => {
   const text = userInput.value.trim()
@@ -504,6 +519,9 @@ const sendMessage = async () => {
   session.messages.push({ role: 'assistant', content: '' })
   const assistantMsgIndex = session.messages.length - 1
 
+  // 创建用于中止请求的 AbortController
+  abortController.value = new AbortController()
+
   try {
     // 根据引擎类型调用对应 AI 服务
     if (selectedEngine.value === 'local') {
@@ -519,7 +537,9 @@ const sendMessage = async () => {
           currentReply.value = fullText
           session.messages[assistantMsgIndex].content = fullText
           scrollToBottom()
-        }
+        },
+        null,
+        { signal: abortController.value.signal }
       )
     } else {
       // 在线 API 和 Ollama 都通过 AIService
@@ -531,20 +551,23 @@ const sendMessage = async () => {
           scrollToBottom()
         },
         null,
-        { model: selectedModel.value }
+        { model: selectedModel.value, signal: abortController.value.signal }
       )
     }
   } catch (error) {
     console.error('调用 AI 失败:', error)
-    if (session.messages[assistantMsgIndex].content === '') {
-       session.messages[assistantMsgIndex].content = '请求失败: ' + (error.message || '请检查配置及网络状况。')
-    } else {
-       session.messages[assistantMsgIndex].content += '\n\n**[请求中断或发生错误: ' + (error.message || '未知错误') + ']**'
+    if (error.name !== 'AbortError') {
+      if (session.messages[assistantMsgIndex].content === '') {
+         session.messages[assistantMsgIndex].content = '请求失败: ' + (error.message || '请检查配置及网络状况。')
+      } else {
+         session.messages[assistantMsgIndex].content += '\n\n**[请求中断或发生错误: ' + (error.message || '未知错误') + ']**'
+      }
     }
   } finally {
     isGenerating.value = false
     session.updatedAt = Date.now()
     settings.aiEngine = previousEngine
+    abortController.value = null
     scrollToBottom()
   }
 }
