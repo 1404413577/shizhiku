@@ -1,1 +1,0 @@
-import{_ as e}from"./index-CyY2Sq2E.js";import{s as o}from"./vendor-excalidraw-DGYGWIhN.js";var r=e((e,r)=>{let t;"sandbox"===r&&(t=o("#i"+e));return o("sandbox"===r?t.nodes()[0].contentDocument.body:"body").select(`[id="${e}"]`)},"getDiagramElement");export{r as g};
