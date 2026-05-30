@@ -26,18 +26,22 @@ try {
   // 忽略导入错误，开发时会按需处理
   console.warn('无法按需导入 docs-loader:', e && e.message)
 }
+
 const isVercel = process.env.VERCEL === '1';
 const isPreview = process.argv.includes('preview');
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: isVercel ? '/' : (isPreview ? '/' : '/shizhiku/'),
+  // 核心修复：确保 GitHub Pages 生产环境打包使用正确的子路径
+  base: process.env.NODE_ENV === 'production' && !isVercel ? '/shizhiku/' : '/',
+  
   define: {
     'process.env.IS_PREACT': JSON.stringify('false'),
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
   },
   plugins: [
     vue({ include: [/\.vue$/, /\.md$/] }),
-    visualizer({ open: false }), // 加上这行
+    visualizer({ open: false }), 
     
     // === Gzip 压缩配置 ===
     viteCompression({
@@ -193,31 +197,18 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        // === 函数式拆包策略 (极其重要：防止首页加载过慢) ===
+        // === 函数式拆包策略 ===
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // 1. 拆分 Excalidraw (白板)
             if (id.includes('@excalidraw')) return 'vendor-excalidraw'
-            // 2. 拆分 Tiptap & ProseMirror
             if (id.includes('@tiptap') || id.includes('prosemirror') || id.includes('tiptap-markdown')) return 'vendor-tiptap'
-            // 3. 拆分 Element Plus
             if (id.includes('element-plus')) return 'vendor-element'
-            
-            // 🚨 新增：精准剥离 16MB 的 MathJax 巨兽！
-            if (id.includes('mathjax-full') || id.includes('markdown-it-mathjax3')) {
-              return 'vendor-mathjax' 
-            }
-
-            // 4. 拆分 Markdown 解析器与高亮
+            if (id.includes('mathjax-full') || id.includes('markdown-it-mathjax3')) return 'vendor-mathjax' 
             if (id.includes('markdown-it') || id.includes('highlight.js')) return 'vendor-markdown'
-            // 5. 拆分 Vue 全家桶
             if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) return 'vendor-vue'
-            // 6. 其他常用工具
             if (id.includes('localforage') || id.includes('file-saver') || id.includes('fuse.js') || id.includes('flexsearch')) return 'vendor-utils'
-            
           }
         },
-        // 文件命名优化
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
@@ -233,7 +224,6 @@ export default defineConfig({
         }
       }
     },
-    // 放宽警告体积界限 (因为我们将包拆分了，这个基本不会报警了)
     chunkSizeWarningLimit: 1500,
     assetsInclude: ['**/*.md'],
     minify: 'terser',
