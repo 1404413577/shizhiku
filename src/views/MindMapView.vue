@@ -18,8 +18,8 @@
         <el-select v-model="currentThemeName" size="small" style="width: 120px" @change="switchTheme">
           <el-option v-for="t in themeNames" :key="t.value" :label="t.label" :value="t.value" />
         </el-select>
-        <el-button size="small" @click="exportAsJSON" :icon="Download">导出 JSON</el-button>
-        <el-button size="small" @click="exportAsPNG" :icon="Picture">导出图片</el-button>
+        <el-button size="small" @click="exportAsJSONFn" :icon="Download">导出 JSON</el-button>
+        <el-button size="small" @click="exportAsPNGFn" :icon="Picture">导出图片</el-button>
       </div>
     </div>
 
@@ -166,6 +166,10 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Delete, ZoomIn, ZoomOut, Download, Select, DocumentAdd, Close, Picture, RefreshLeft, RefreshRight } from '@element-plus/icons-vue'
+import { createSampleData, createNode, cloneNode, genId } from '../composables/mindmap/useNodeModel'
+import { useCreate } from '../composables/mindmap/useCreate'
+import { usePersist } from '../composables/mindmap/usePersist'
+import { cleanNodeForExport, importFromJSON, exportAsJSON, exportAsPNG, calculateSVGBBox } from '../composables/mindmap/useExport'
 
 // ==================== 主题 ====================
 const themes = {
@@ -225,62 +229,7 @@ const currentThemeName = ref('default')
 const currentTheme = computed(() => themes[currentThemeName.value])
 
 // ==================== 数据模型 ====================
-let idCounter = 0
-const genId = () => `node_${Date.now()}_${idCounter++}`
-
-function createNode(title, level = 0, children = []) {
-  return {
-    id: genId(),
-    title,
-    children,
-    collapsed: false,
-    style: null,
-    _level: level,
-    _x: 0,
-    _y: 0,
-    _width: 120,
-    _height: 38,
-    _totalHeight: 38,
-  }
-}
-
-function cloneNode(node) {
-  return {
-    ...node,
-    id: genId(),
-    children: node.children.map(cloneNode),
-    style: node.style ? { ...node.style } : null,
-  }
-}
-
-// 初始示例数据
-function createSampleData() {
-  const root = createNode('思维导图', 0, [
-    createNode('功能介绍', 1, [
-      createNode('节点新增与编辑', 2),
-      createNode('拖拽移动节点', 2),
-      createNode('折叠/展开分支', 2),
-      createNode('多主题切换', 2),
-    ]),
-    createNode('视觉样式', 1, [
-      createNode('5 种内置主题', 2),
-      createNode('节点颜色自定义', 2),
-      createNode('字体与边框设置', 2),
-      createNode('美观贝塞尔连线', 2),
-    ]),
-    createNode('数据管理', 1, [
-      createNode('本地自动保存', 2),
-      createNode('导出 JSON 格式', 2),
-      createNode('导出 PNG 图片', 2),
-    ]),
-    createNode('交互操作', 1, [
-      createNode('画布拖拽平移', 2),
-      createNode('滚轮缩放', 2),
-      createNode('快捷键支持', 2),
-    ]),
-  ])
-  return root
-}
+// createNode, cloneNode, genId, createSampleData 已从 useNodeModel 中导入
 
 const rootData = ref(createSampleData())
 
@@ -705,41 +654,33 @@ function zoomOut() {
   zoom.value = Math.max(0.2, zoom.value / 1.2)
 }
 
-function fitToCenter() {
-  zoom.value = 1
-  panX.value = 40
-  panY.value = 40
-}
+// 使用 useCreate composable
+const { createNewMindMap, getCenterViewport } = useCreate()
 
 function newMindMap() {
   pushUndo()
-  rootData.value = createSampleData()
+  rootData.value = createNewMindMap()
   selectedNodeId.value = null
   fitToCenter()
   recalc()
+}
+
+function fitToCenter() {
+  const viewport = getCenterViewport()
+  zoom.value = viewport.zoom
+  panX.value = viewport.panX
+  panY.value = viewport.panY
 }
 
 function switchTheme() {
   recalc()
 }
 
-function saveMindMap() {
-  try {
-    const data = JSON.stringify(rootData.value)
-    localStorage.setItem('mindmap-data', data)
-    ElMessage.success('已保存到本地存储')
-  } catch {
-    ElMessage.error('保存失败')
-  }
-}
+// 使用 usePersist composable
+const { saveMindMap, loadMindMap } = usePersist(rootData)
 
-function exportAsJSON() {
-  const cleanNode = (node) => {
-    const { _level, _x, _y, _width, _height, _totalHeight, ...rest } = node
-    if (rest.children) rest.children = rest.children.map(cleanNode)
-    return rest
-  }
-  const json = JSON.stringify(cleanNode(rootData.value), null, 2)
+function exportAsJSONFn() {
+  const json = JSON.stringify(cleanNodeForExport(rootData.value), null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -750,63 +691,20 @@ function exportAsJSON() {
   ElMessage.success('导出成功')
 }
 
-function exportAsPNG() {
-  const serializer = new XMLSerializer()
-  const svgClone = svgRef.value.cloneNode(true)
-  // Set explicit size
-  const bbox = getSVGBBox()
-  svgClone.setAttribute('width', bbox.width + 200)
-  svgClone.setAttribute('height', bbox.height + 100)
-  svgClone.setAttribute('viewBox', `${bbox.x - 80} ${bbox.y - 60} ${bbox.width + 200} ${bbox.height + 100}`)
-  svgClone.querySelector('g').removeAttribute('transform')
+function exportAsPNGFn() {
+  const bbox = calculateSVGBBox(flatNodes.value)
+  const width = bbox.width + 200
+  const height = bbox.height + 100
 
-  // Apply background
-  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-  bg.setAttribute('x', bbox.x - 80)
-  bg.setAttribute('y', bbox.y - 60)
-  bg.setAttribute('width', bbox.width + 200)
-  bg.setAttribute('height', bbox.height + 100)
-  bg.setAttribute('fill', currentTheme.value.bg)
-  svgClone.insertBefore(bg, svgClone.firstChild)
-
-  const svgStr = serializer.serializeToString(svgClone)
-  const img = new Image()
-  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-
-  img.onload = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width * 2
-    canvas.height = img.height * 2
-    const ctx = canvas.getContext('2d')
-    ctx.scale(2, 2)
-    ctx.fillStyle = currentTheme.value.bg
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(img, 0, 0)
-    URL.revokeObjectURL(url)
-
-    canvas.toBlob((pngBlob) => {
-      const pngUrl = URL.createObjectURL(pngBlob)
-      const a = document.createElement('a')
-      a.href = pngUrl
-      a.download = `思维导图_${new Date().toISOString().slice(0, 10)}.png`
-      a.click()
-      URL.revokeObjectURL(pngUrl)
-      ElMessage.success('导出成功')
-    }, 'image/png')
-  }
-  img.src = url
+  exportAsPNG(svgRef.value, flatNodes.value, currentTheme.value).then(() => {
+    // Success message handled in composable
+  }).catch((error) => {
+    console.error('导出 PNG 失败:', error)
+  })
 }
 
 function getSVGBBox() {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const node of flatNodes.value) {
-    minX = Math.min(minX, node._x)
-    minY = Math.min(minY, node._y)
-    maxX = Math.max(maxX, node._x + node._width)
-    maxY = Math.max(maxY, node._y + node._height)
-  }
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  return calculateSVGBBox(flatNodes.value)
 }
 
 // ==================== 键盘快捷键 ====================
@@ -843,14 +741,8 @@ function onKeydown(e) {
 
 // ==================== 生命周期 ====================
 onMounted(() => {
-  // 尝试从 localStorage 加载
-  try {
-    const saved = localStorage.getItem('mindmap-data')
-    if (saved) {
-      const data = JSON.parse(saved)
-      rootData.value = data
-    }
-  } catch { /* ignore */ }
+  // 使用 usePersist composable 加载数据
+  loadMindMap()
 
   recalc()
   fitToCenter()

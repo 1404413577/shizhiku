@@ -166,8 +166,15 @@ const currentReply = ref('')
 const chatBodyRef = ref(null)
 
 // 安全解析 localStorage 中的 JSON
+// 安全解析 localStorage 中的 JSON
 const safeJsonParse = (str, fallback = []) => {
-  try { return JSON.parse(str) } catch { return fallback }
+  if (!str) return fallback // 拦截 localStorage 返回的 null 或空字符串
+  try { 
+    const parsed = JSON.parse(str)
+    return parsed !== null ? parsed : fallback // 防止存入的字符串正好是 "null"
+  } catch { 
+    return fallback 
+  }
 }
 
 // 多会话状态
