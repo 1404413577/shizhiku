@@ -126,6 +126,7 @@ export default defineConfig({
     // 按需启用 docsLoader（如果模块可用）
     ...(docsLoader ? [docsLoader()] : []),
     VitePWA({
+      useCredentials: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'logo.png', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
