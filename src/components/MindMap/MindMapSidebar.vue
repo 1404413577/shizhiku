@@ -1,9 +1,23 @@
 <template>
   <div :class="['mm-sidebar', { 'sidebar-open': isSidebarOpen }]">
     <div class="sidebar-header">
-      <el-button type="primary" :icon="Plus" class="new-mm-btn" @click="$emit('create')" round>
-        新建导图
-      </el-button>
+      <!-- 使用 Dropdown 下拉菜单实现模板选择 -->
+      <el-dropdown trigger="click" @command="handleCreate" class="new-mm-dropdown">
+        <el-button type="primary" class="new-mm-btn" round>
+          <el-icon><Plus /></el-icon>
+          <span style="margin-left: 4px; margin-right: 4px;">新建导图</span>
+          <el-icon><ArrowDown /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="blank">📄 空白导图</el-dropdown-item>
+            <el-dropdown-item command="project">📊 项目计划</el-dropdown-item>
+            <el-dropdown-item command="meeting">📝 会议纪要</el-dropdown-item>
+            <el-dropdown-item command="brainstorm">💡 头脑风暴</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
       <el-button class="sidebar-close-btn" :icon="Close" circle text @click="$emit('update:isSidebarOpen', false)" />
     </div>
     <el-scrollbar class="session-list">
@@ -34,7 +48,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { Plus, Close, Share, Delete } from '@element-plus/icons-vue'
+import { Plus, Close, Share, Delete, ArrowDown } from '@element-plus/icons-vue'
 
 const props = defineProps({
   sessions: { type: Array, required: true },
@@ -47,6 +61,11 @@ const emit = defineEmits(['update:isSidebarOpen', 'create', 'select', 'delete'])
 const sortedSessions = computed(() => {
   return [...props.sessions].sort((a, b) => b.updatedAt - a.updatedAt)
 })
+
+// 透传 command 参数给父组件 (MindMapView.vue)
+function handleCreate(command) {
+  emit('create', command)
+}
 </script>
 
 <style scoped>
@@ -67,8 +86,12 @@ const sortedSessions = computed(() => {
   align-items: center;
   gap: 10px;
 }
-.new-mm-btn {
+.new-mm-dropdown {
   flex: 1;
+  display: flex;
+}
+.new-mm-btn {
+  width: 100%;
   font-weight: 500;
 }
 .session-list {
@@ -117,7 +140,6 @@ const sortedSessions = computed(() => {
   transform: scale(1);
 }
 
-/* 移动端响应式，侧滑覆盖 */
 @media (max-width: 768px) {
   .mm-sidebar {
     position: fixed;

@@ -1,10 +1,14 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createNode, createSampleData } from './useNodeModel'
+import { useCreate } from './useCreate' // 引入新建逻辑
 
 export function usePersist(rootData, onSessionChange) {
   const sessions = ref([])
   const activeSessionId = ref(null)
+  
+  // 提取创建方法
+  const { createNewMindMap } = useCreate()
 
   function loadSessions() {
     try {
@@ -12,7 +16,6 @@ export function usePersist(rootData, onSessionChange) {
       if (saved) {
         sessions.value = JSON.parse(saved)
       } else {
-        // 兼容迁移：如果存在老版本的数据，将其无缝转换为新版列表格式
         const oldData = localStorage.getItem('mindmap-data')
         const id = Date.now().toString()
         sessions.value = [{
@@ -24,7 +27,6 @@ export function usePersist(rootData, onSessionChange) {
         localStorage.removeItem('mindmap-data')
       }
 
-      // 恢复上次激活的导图
       const lastActiveId = localStorage.getItem('mindmap-active-id')
       if (lastActiveId && sessions.value.some(s => s.id === lastActiveId)) {
         activeSessionId.value = lastActiveId
@@ -49,16 +51,13 @@ export function usePersist(rootData, onSessionChange) {
     } else {
       rootData.value = createNode('中心主题', 0)
     }
-    // 切换数据后，通知视图重新计算布局、清空撤销栈等
     if (onSessionChange) onSessionChange()
   }
 
-  // 手动或静默保存当前导图
   function saveMindMap(showMsg = true) {
     const session = sessions.value.find(s => s.id === activeSessionId.value)
     if (session) {
       session.data = JSON.parse(JSON.stringify(rootData.value))
-      // 自动提取中心节点的文本作为列表标题
       session.title = rootData.value.title || '未命名导图'
       session.updatedAt = Date.now()
       saveToStorage()
@@ -66,16 +65,21 @@ export function usePersist(rootData, onSessionChange) {
     }
   }
 
-  function createNewSession() {
-    if (activeSessionId.value) saveMindMap(false) // 切换前静默保存当前的
+  // 🚀 核心修改：接收 templateId 并应用模板
+  function createNewSession(templateId = 'blank') {
+    if (activeSessionId.value) saveMindMap(false) 
     const id = Date.now().toString()
+    
+    // 生成对应的模板树
+    const newData = createNewMindMap(templateId)
+    
     const newSession = {
       id,
-      title: '中心主题',
+      title: newData.title,
       updatedAt: Date.now(),
-      data: createNode('中心主题', 0)
+      data: newData
     }
-    sessions.value.unshift(newSession) // 插入到列表最前
+    sessions.value.unshift(newSession)
     activeSessionId.value = id
     saveToStorage()
     loadActiveSessionData()
@@ -83,7 +87,7 @@ export function usePersist(rootData, onSessionChange) {
 
   function switchSession(id) {
     if (activeSessionId.value === id) return
-    saveMindMap(false) // 切换前静默保存当前的
+    saveMindMap(false)
     activeSessionId.value = id
     saveToStorage()
     loadActiveSessionData()
@@ -98,7 +102,7 @@ export function usePersist(rootData, onSessionChange) {
           activeSessionId.value = sessions.value[0].id
           loadActiveSessionData()
         } else {
-          createNewSession() // 如果删光了，自动新建一个空白的
+          createNewSession('blank')
         }
       }
       saveToStorage()
