@@ -58,6 +58,22 @@ export class SearchEngine {
   }
 
   /**
+   * 增量添加或更新文档
+   * @param {Object} document - 单个文档数据
+   */
+  async upsert(document) {
+    return this._post("upsert", document);
+  }
+
+  /**
+   * 从索引中移除文档
+   * @param {String|Array} ids - 文档 ID 或 ID 列表
+   */
+  async remove(ids) {
+    return this._post("remove", Array.isArray(ids) ? ids : [ids]);
+  }
+
+  /**
    * 搜索文档
    * @param {String} query - 关键词
    */

@@ -181,7 +181,7 @@ export const useDocumentsStore = defineStore('documents', {
         if (this.workspaceMode === 'local' && !this.localDirHandle) throw new Error('未连接本地工作区')
         const document = await documentService.create(title, content, parentId ? String(parentId) : null)
         this.documents = [document, ...this.documents]
-        await documentService.refreshSearchIndex(this.documents)
+        await documentService.upsertSearchIndex(document)
         return document
       } catch (error) {
         console.error('创建文档失败:', error)
@@ -194,7 +194,6 @@ export const useDocumentsStore = defineStore('documents', {
         documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
         const folder = await documentService.createFolder(title, parentId ? String(parentId) : null)
         this.documents = [folder, ...this.documents]
-        await documentService.refreshSearchIndex(this.documents)
         return folder
       } catch (error) {
         console.error('创建文件夹失败:', error)
@@ -208,7 +207,7 @@ export const useDocumentsStore = defineStore('documents', {
         await documentService.move(id, newParentId || null, this.documents)
         const doc = this.documents.find(d => d.id === id)
         if (doc) doc.parentId = newParentId || null
-        await documentService.refreshSearchIndex(this.documents)
+        if (doc && !doc.isFolder) await documentService.upsertSearchIndex(doc)
       } catch (error) {
         console.error('移动文档失败:', error)
         throw error
@@ -221,7 +220,7 @@ export const useDocumentsStore = defineStore('documents', {
         const document = await documentService.togglePin(id, this.documents)
         const index = this.documents.findIndex(doc => doc.id === id)
         if (index !== -1) this.documents = [...this.documents.slice(0, index), document, ...this.documents.slice(index + 1)]
-        await documentService.refreshSearchIndex(this.documents)
+        await documentService.upsertSearchIndex(document)
       } catch (error) {
         console.error('切换置顶状态失败:', error)
         throw error
@@ -234,7 +233,7 @@ export const useDocumentsStore = defineStore('documents', {
         const document = await documentService.toggleFavorite(id, this.documents)
         const index = this.documents.findIndex(doc => doc.id === id)
         if (index !== -1) this.documents = [...this.documents.slice(0, index), document, ...this.documents.slice(index + 1)]
-        await documentService.refreshSearchIndex(this.documents)
+        await documentService.upsertSearchIndex(document)
       } catch (error) {
         console.error('切换收藏状态失败:', error)
         throw error
@@ -254,7 +253,7 @@ export const useDocumentsStore = defineStore('documents', {
           this.documents = [...this.documents, document]
         }
 
-        await documentService.refreshSearchIndex(this.documents)
+        await documentService.upsertSearchIndex(document)
         this.currentDocument = { ...document }
         return document
       } catch (error) {
@@ -276,7 +275,7 @@ export const useDocumentsStore = defineStore('documents', {
         await documentService.remove(ids)
 
         this.documents = this.documents.filter(doc => !idSet.has(doc.id))
-        await documentService.refreshSearchIndex(this.documents)
+        await documentService.removeFromSearchIndex(ids)
         if (this.currentDocument && idSet.has(this.currentDocument.id)) {
           this.currentDocument = null
         }
@@ -297,7 +296,12 @@ export const useDocumentsStore = defineStore('documents', {
         searchService.search(currentQuery).then(results => {
           if (this.searchQuery === query) {
             const byId = new Map(this.documents.map(d => [d.id, d]))
-            this.searchResults = results.map(r => byId.get(r.item.id)).filter(Boolean)
+            this.searchResults = results
+              .map(r => {
+                const document = byId.get(r.item.id)
+                return document ? { ...document, highlightedSummary: r.item.highlightedSummary } : null
+              })
+              .filter(Boolean)
           }
         }).catch(err => {
           if (this.searchQuery === query) this.searchResults = []

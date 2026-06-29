@@ -53,7 +53,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Document, ArrowRight } from '@element-plus/icons-vue'
-import { searchEngine } from '@/utils/search.js'
+import { searchService } from '@/services/searchService'
 
 const router = useRouter()
 const visible = ref(false)
@@ -92,8 +92,7 @@ watch(query, async (newQuery) => {
     results.value = []
     return
   }
-  // 调用上一轮重写的极速搜索引擎
-  const searchResults = await searchEngine.search(newQuery)
+  const searchResults = await searchService.search(newQuery)
   // 只取前 8 条结果，保持弹窗简洁
   results.value = searchResults.slice(0, 8)
   selectedIndex.value = 0

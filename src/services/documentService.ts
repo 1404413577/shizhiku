@@ -97,6 +97,14 @@ class DocumentService {
     return searchService.indexAll(documents)
   }
 
+  async upsertSearchIndex(document: LegacyDocumentNode) {
+    return searchService.upsert(document)
+  }
+
+  async removeFromSearchIndex(ids: string | string[]) {
+    return searchService.remove(ids)
+  }
+
   async loadPresetDocsIfNeeded(documents: LegacyDocumentNode[], forceReload = false) {
     if (this.mode !== 'indexeddb') return documents
 

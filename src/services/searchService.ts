@@ -5,6 +5,14 @@ export const searchService = {
     return searchEngine.initialize([...documents])
   },
 
+  async upsert(document: unknown) {
+    return searchEngine.upsert(document)
+  },
+
+  async remove(ids: string | string[]) {
+    return searchEngine.remove(ids)
+  },
+
   async search(query) {
     return searchEngine.search(query)
   },

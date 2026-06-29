@@ -1,23 +1,11 @@
 import FlexSearch from 'flexsearch'
+import { extractMarkdownText } from '@/domain/markdown/markdownRules'
 
 console.log('👷 Search Worker: Booting up in background thread...')
 
-// --- 纯文本提取逻辑 (移入后台，不抢占 UI 算力) ---
-function extractText(content) {
-  if (!content) return ''
-  return String(content)
-    .replace(/```[\s\S]*?```/g, '') 
-    .replace(/`[^`]*`/g, '')        
-    .replace(/!\[.*?\]\(.*?\)/g, '')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') 
-    .replace(/[#*_~`]/g, '')        
-    .replace(/\n+/g, ' ')           
-    .trim()
-}
-
 // --- 动态高亮摘要提取 ---
 function generateHighlightedSummary(content, query = '', maxLength = 120) {
-  const text = extractText(content)
+  const text = extractMarkdownText(content)
   if (!query) return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
 
   const lowerText = text.toLowerCase()
@@ -41,6 +29,54 @@ function generateHighlightedSummary(content, query = '', maxLength = 120) {
 let index = null
 let documents = []
 
+function createIndex() {
+  return new FlexSearch.Document({
+    document: {
+      id: "id",
+      index: [
+        { field: "title", tokenize: "full", resolution: 9 },
+        { field: "searchText", tokenize: "full", resolution: 5 },
+        { field: "tags", tokenize: "forward", resolution: 7 }
+      ],
+      store: true
+    },
+    encode: function(str) {
+      const lower = str.toLowerCase()
+      const words = lower.match(/[a-z0-9]+/g) || []
+      const chars = lower.match(/[\u4e00-\u9fa5]/g) || []
+      return words.concat(chars)
+    }
+  })
+}
+
+function toIndexDocument(doc) {
+  return {
+    id: doc.id,
+    title: doc.title,
+    searchText: extractMarkdownText(doc.content),
+    tags: doc.tags ? doc.tags.join(' ') : '',
+    rawDoc: doc
+  }
+}
+
+function upsertDocument(doc) {
+  if (!doc || doc.isFolder) return false
+  if (!index) index = createIndex()
+
+  try {
+    index.remove(doc.id)
+  } catch (_) {}
+  index.add(toIndexDocument(doc))
+
+  const existingIndex = documents.findIndex(item => item.id === doc.id)
+  if (existingIndex === -1) {
+    documents.push(doc)
+  } else {
+    documents[existingIndex] = doc
+  }
+  return true
+}
+
 // 监听主线程发来的消息
 self.onmessage = function(e) {
   const { type, payload, requestId } = e.data
@@ -52,34 +88,30 @@ self.onmessage = function(e) {
         const docsToIndex = rawDocs.filter(doc => !doc.isFolder)
         documents = docsToIndex
 
-        index = new FlexSearch.Document({
-          document: {
-            id: "id",
-            index: [
-              { field: "title", tokenize: "full", resolution: 9 },
-              { field: "searchText", tokenize: "full", resolution: 5 },
-              { field: "tags", tokenize: "forward", resolution: 7 }
-            ],
-            store: true
-          },
-          encode: function(str) {
-            const lower = str.toLowerCase()
-            const words = lower.match(/[a-z0-9]+/g) || [] 
-            const chars = lower.match(/[\u4e00-\u9fa5]/g) || [] 
-            return words.concat(chars)
-          }
-        })
+        index = createIndex()
 
         docsToIndex.forEach(doc => {
-          index.add({
-            id: doc.id,
-            title: doc.title,
-            searchText: extractText(doc.content),
-            tags: doc.tags ? doc.tags.join(' ') : '',
-            rawDoc: doc 
-          })
+          index.add(toIndexDocument(doc))
         })
         self.postMessage({ type: 'initialized', payload: { count: documents.length }, requestId })
+        break
+
+      case 'upsert':
+        const changed = upsertDocument(payload)
+        self.postMessage({ type: 'upserted', payload: { changed }, requestId })
+        break
+
+      case 'remove':
+        const ids = new Set((payload || []).map(id => String(id)))
+        if (index) {
+          ids.forEach(id => {
+            try {
+              index.remove(id)
+            } catch (_) {}
+          })
+        }
+        documents = documents.filter(doc => !ids.has(String(doc.id)))
+        self.postMessage({ type: 'removed', payload: { count: ids.size }, requestId })
         break
 
       case 'search':
