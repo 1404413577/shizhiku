@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
-import { storage } from '@/utils/storage.js'
-import { searchEngine } from '@/utils/search.js'
-import { presetDocsLoader } from '@/utils/presetDocs.js'
-import { markdownProcessor } from '@/utils/markdown.js'
+import { buildDocumentTree } from '@/domain/document/documentRules'
+import { documentService } from '@/services/documentService'
+import { searchService } from '@/services/searchService'
 import { FileSystem as FSService } from '@/services/fs.js'
 import { ElMessage } from 'element-plus'
 
@@ -39,30 +38,7 @@ export const useDocumentsStore = defineStore('documents', {
     },
 
     documentTree: (state) => {
-      const items = state.documents.map(doc => ({ ...doc, children: [] }))
-      const tree = []
-      const lookup = {}
-      items.forEach(item => { lookup[item.id] = item })
-      items.forEach(item => {
-        if (item.parentId && lookup[item.parentId]) {
-          lookup[item.parentId].children.push(item)
-        } else {
-          tree.push(item)
-        }
-      })
-      const sortTree = (nodes) => {
-        nodes.sort((a, b) => {
-          const aPinned = a.isPinned ? 1 : 0
-          const bPinned = b.isPinned ? 1 : 0
-          if (aPinned !== bPinned) return bPinned - aPinned
-          if (a.isFolder && !b.isFolder) return -1
-          if (!a.isFolder && b.isFolder) return 1
-          return new Date(b.updatedAt) - new Date(a.updatedAt)
-        })
-        nodes.forEach(node => sortTree(node.children))
-      }
-      sortTree(tree)
-      return tree
+      return buildDocumentTree(state.documents)
     },
 
     stats: (state) => ({
@@ -129,6 +105,7 @@ export const useDocumentsStore = defineStore('documents', {
         const handle = await FSService.requestWorkspaceAccess()
         this.localDirHandle = handle
         this.workspaceMode = 'local'
+        documentService.setWorkspaceMode('local')
         await this.loadDocuments()
         ElMessage.success('已成功连接到本地工作区')
       } catch (err) {
@@ -139,6 +116,7 @@ export const useDocumentsStore = defineStore('documents', {
     async switchToIndexedDB() {
       this.workspaceMode = 'indexeddb'
       this.localDirHandle = null
+      documentService.setWorkspaceMode('indexeddb')
       await this.loadDocuments()
       ElMessage.success('已切换回浏览器内建存储')
     },
@@ -149,6 +127,7 @@ export const useDocumentsStore = defineStore('documents', {
         if (handle) {
           this.localDirHandle = handle
           this.workspaceMode = 'local'
+          documentService.setWorkspaceMode('local')
           await this.loadDocuments()
           return true
         }
@@ -161,14 +140,9 @@ export const useDocumentsStore = defineStore('documents', {
     async loadDocuments() {
       this.loading = true
       try {
-        if (this.workspaceMode === 'local') {
-          if (!this.localDirHandle) throw new Error('未连接本地文件夹')
-          this.documents = await FSService.readAllFiles()
-        } else {
-          this.documents = await storage.getAllDocuments()
-          await this.loadPresetDocsIfNeeded()
-        }
-        await searchEngine.initialize([...this.documents])
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        if (this.workspaceMode === 'local' && !this.localDirHandle) throw new Error('未连接本地文件夹')
+        this.documents = await documentService.list({ loadPresetDocs: this.workspaceMode !== 'local' })
       } catch (error) {
         console.error('加载文档失败:', error)
         throw error
@@ -179,26 +153,10 @@ export const useDocumentsStore = defineStore('documents', {
 
     async loadPresetDocsIfNeeded(forceReload = false) {
       try {
-        if (forceReload) presetDocsLoader.clearCache()
-        if (!forceReload && presetDocsLoader.isAlreadyLoaded()) return
-
-        const shouldLoad = forceReload || await presetDocsLoader.shouldLoadPresetDocs(this.documents)
-        if (!shouldLoad) return
-
-        const presetDocs = await presetDocsLoader.loadPresetDocs(forceReload)
-        if (presetDocs && presetDocs.length > 0) {
-          if (forceReload) {
-            const existingPresetDocs = this.documents.filter(doc => doc.isPreset)
-            for (const doc of existingPresetDocs) {
-              await storage.deleteDocument(doc.id)
-            }
-          }
-          for (const doc of presetDocs) {
-            await storage.saveDocument(doc.id, doc)
-          }
-          this.documents = await storage.getAllDocuments()
-          presetDocsLoader.markAsLoaded()
-        }
+        if (this.workspaceMode === 'local') return
+        documentService.setWorkspaceMode('indexeddb')
+        this.documents = await documentService.loadPresetDocsIfNeeded(this.documents, forceReload)
+        await documentService.refreshSearchIndex(this.documents)
       } catch (error) {
         console.warn('加载预设文档失败:', error)
       }
@@ -207,22 +165,10 @@ export const useDocumentsStore = defineStore('documents', {
     async getDocument(id) {
       if (!id) return null
       try {
-        if (this.workspaceMode === 'local') {
-          const doc = this.documents.find(d => d.id === id)
-          if (!doc) throw new Error('Document not found in local workspace')
-          
-          if (doc.handle && doc.handle.kind === 'file') {
-            const file = await doc.handle.getFile()
-            doc.content = await file.text()
-            doc.updatedAt = new Date(file.lastModified).toISOString()
-          }
-          this.currentDocument = doc
-          return doc
-        } else {
-          const document = await storage.getDocument(id)
-          this.currentDocument = document
-          return document
-        }
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        const document = await documentService.get(id)
+        this.currentDocument = document
+        return document
       } catch (error) {
         console.error('获取文档失败:', error)
         throw error
@@ -231,27 +177,11 @@ export const useDocumentsStore = defineStore('documents', {
 
     async createDocument(title, content = '', parentId = null) {
       try {
-        let document
-        if (this.workspaceMode === 'local') {
-          if (!this.localDirHandle) throw new Error('未连接本地工作区')
-          const filename = title || '未命名'
-          const fileHandle = await FSService.writeFile(filename, content)
-          document = {
-            id: filename, title: filename, content: content,
-            updatedAt: new Date().toISOString(), createdAt: new Date().toISOString(),
-            isLocal: true, handle: fileHandle, parentId: parentId || null
-          }
-        } else {
-          document = await storage.createDocument(title, content)
-          if (parentId) document.parentId = String(parentId)
-        }
-
-        if (this.workspaceMode === 'indexeddb' && parentId) {
-          await this.saveDocument(document.id, document)
-        } else {
-          this.documents = [document, ...this.documents]
-          await searchEngine.initialize([...this.documents])
-        }
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        if (this.workspaceMode === 'local' && !this.localDirHandle) throw new Error('未连接本地工作区')
+        const document = await documentService.create(title, content, parentId ? String(parentId) : null)
+        this.documents = [document, ...this.documents]
+        await documentService.refreshSearchIndex(this.documents)
         return document
       } catch (error) {
         console.error('创建文档失败:', error)
@@ -261,8 +191,10 @@ export const useDocumentsStore = defineStore('documents', {
 
     async createFolder(title, parentId = null) {
       try {
-        const folder = await storage.createFolder(title, parentId)
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        const folder = await documentService.createFolder(title, parentId ? String(parentId) : null)
         this.documents = [folder, ...this.documents]
+        await documentService.refreshSearchIndex(this.documents)
         return folder
       } catch (error) {
         console.error('创建文件夹失败:', error)
@@ -272,18 +204,11 @@ export const useDocumentsStore = defineStore('documents', {
 
     async moveDocument(id, newParentId) {
       try {
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        await documentService.move(id, newParentId || null, this.documents)
         const doc = this.documents.find(d => d.id === id)
-        if (!doc) throw new Error('Document not found')
-
-        if (doc.isFolder && newParentId) {
-          let currentParent = this.documents.find(d => d.id === newParentId)
-          while (currentParent) {
-            if (currentParent.id === id) throw new Error('Cannot move a folder into its own descendants')
-            currentParent = this.documents.find(d => d.id === currentParent.parentId)
-          }
-        }
-        doc.parentId = newParentId || null
-        await this.saveDocument(id, { parentId: doc.parentId })
+        if (doc) doc.parentId = newParentId || null
+        await documentService.refreshSearchIndex(this.documents)
       } catch (error) {
         console.error('移动文档失败:', error)
         throw error
@@ -292,10 +217,11 @@ export const useDocumentsStore = defineStore('documents', {
 
     async togglePin(id) {
       try {
-        const doc = this.documents.find(d => d.id === id)
-        if (!doc) throw new Error('Document not found')
-        doc.isPinned = !doc.isPinned
-        await this.saveDocument(id, { isPinned: doc.isPinned })
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        const document = await documentService.togglePin(id, this.documents)
+        const index = this.documents.findIndex(doc => doc.id === id)
+        if (index !== -1) this.documents = [...this.documents.slice(0, index), document, ...this.documents.slice(index + 1)]
+        await documentService.refreshSearchIndex(this.documents)
       } catch (error) {
         console.error('切换置顶状态失败:', error)
         throw error
@@ -304,10 +230,11 @@ export const useDocumentsStore = defineStore('documents', {
     
     async toggleFavorite(id) {
       try {
-        const doc = this.documents.find(d => d.id === id)
-        if (!doc) throw new Error('Document not found')
-        doc.isFavorited = !doc.isFavorited
-        await this.saveDocument(id, { isFavorited: doc.isFavorited })
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        const document = await documentService.toggleFavorite(id, this.documents)
+        const index = this.documents.findIndex(doc => doc.id === id)
+        if (index !== -1) this.documents = [...this.documents.slice(0, index), document, ...this.documents.slice(index + 1)]
+        await documentService.refreshSearchIndex(this.documents)
       } catch (error) {
         console.error('切换收藏状态失败:', error)
         throw error
@@ -317,29 +244,8 @@ export const useDocumentsStore = defineStore('documents', {
     async saveDocument(id, updates) {
       if (!id) return null
       try {
-        let document = null
-        const docIndex = this.documents.findIndex(d => d.id === id)
-
-        if (this.workspaceMode === 'local') {
-          if (docIndex === -1) throw new Error('Local document not found in store')
-          const oldDoc = this.documents[docIndex]
-          document = { ...oldDoc, ...updates }
-          
-          if (updates.title && updates.title !== oldDoc.title) {
-            await FSService.deleteFile(oldDoc.title)
-            document.handle = await FSService.writeFile(updates.title, document.content || '')
-            document.id = updates.title
-          } else if (updates.content !== undefined) {
-            document.handle = await FSService.writeFile(document.title, updates.content)
-          }
-          document.updatedAt = new Date().toISOString()
-        } else {
-          if (docIndex !== -1) {
-            document = await storage.saveDocument(id, { ...this.documents[docIndex], ...updates })
-          } else {
-            document = await storage.saveDocument(id, updates)
-          }
-        }
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        const document = await documentService.update(id, updates, this.documents)
 
         const index = this.documents.findIndex(doc => doc.id === id)
         if (index !== -1) {
@@ -348,7 +254,7 @@ export const useDocumentsStore = defineStore('documents', {
           this.documents = [...this.documents, document]
         }
 
-        await searchEngine.initialize([...this.documents])
+        await documentService.refreshSearchIndex(this.documents)
         this.currentDocument = { ...document }
         return document
       } catch (error) {
@@ -365,20 +271,12 @@ export const useDocumentsStore = defineStore('documents', {
       if (!ids || ids.length === 0) return
       try {
         const idSet = new Set(ids)
-        if (this.workspaceMode === 'local') {
-          if (!this.localDirHandle) throw new Error('未连接本地工作区')
-          for (const id of ids) {
-            const doc = this.documents.find(d => d.id === id)
-            if (doc) await FSService.deleteFile(doc.title || doc.id)
-          }
-        } else {
-          for (const id of ids) {
-            await storage.deleteDocument(id)
-          }
-        }
+        documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+        if (this.workspaceMode === 'local' && !this.localDirHandle) throw new Error('未连接本地工作区')
+        await documentService.remove(ids)
 
         this.documents = this.documents.filter(doc => !idSet.has(doc.id))
-        await searchEngine.initialize([...this.documents])
+        await documentService.refreshSearchIndex(this.documents)
         if (this.currentDocument && idSet.has(this.currentDocument.id)) {
           this.currentDocument = null
         }
@@ -396,7 +294,7 @@ export const useDocumentsStore = defineStore('documents', {
       }
       try {
         const currentQuery = query.trim()
-        searchEngine.search(currentQuery).then(results => {
+        searchService.search(currentQuery).then(results => {
           if (this.searchQuery === query) {
             const byId = new Map(this.documents.map(d => [d.id, d]))
             this.searchResults = results.map(r => byId.get(r.item.id)).filter(Boolean)
@@ -419,11 +317,13 @@ export const useDocumentsStore = defineStore('documents', {
     },
 
     async exportData() {
-      return await storage.exportDocuments()
+      documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+      return await documentService.export()
     },
 
     async importData(jsonData) {
-      await storage.importDocuments(jsonData)
+      documentService.setWorkspaceMode(this.workspaceMode === 'local' ? 'local' : 'indexeddb')
+      await documentService.import(jsonData)
       await this.loadDocuments()
     },
 
@@ -434,11 +334,10 @@ export const useDocumentsStore = defineStore('documents', {
     // --- 恢复被遗漏的辅助函数 ---
     async reloadPresetDocs() {
       try {
-        const presetDocs = this.documents.filter(doc => doc.isPreset)
-        for (const doc of presetDocs) await storage.deleteDocument(doc.id)
-        localStorage.removeItem('preset-docs-loaded')
-        presetDocsLoader.loaded = false
-        await this.loadDocuments()
+        if (this.workspaceMode === 'local') return
+        documentService.setWorkspaceMode('indexeddb')
+        this.documents = await documentService.loadPresetDocsIfNeeded(this.documents, true)
+        await documentService.refreshSearchIndex(this.documents)
       } catch (error) {
         console.error('重新加载预设文档失败:', error)
         throw error
@@ -470,7 +369,7 @@ export const useDocumentsStore = defineStore('documents', {
     async addDynamicDocuments(dynamicDocs) {
       this.documents = this.documents.filter(doc => !doc.isDynamic)
       this.documents.push(...dynamicDocs)
-      await searchEngine.initialize([...this.documents])
+      await documentService.refreshSearchIndex(this.documents)
     },
 
     getDynamicDocuments() {
@@ -479,6 +378,7 @@ export const useDocumentsStore = defineStore('documents', {
 
     async generateSummariesForExistingDocs() {
       let updatedCount = 0
+      const { markdownProcessor } = await import('@/utils/markdown.js')
       for (const doc of this.documents) {
         if (doc.summary && doc.summary.trim()) continue
         if (!doc.content || !doc.content.trim()) continue
