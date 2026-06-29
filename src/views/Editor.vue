@@ -188,7 +188,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDocumentsStore } from "@/stores/documents.js";
-import { markdownProcessor } from "@/utils/markdown.js";
+import { markdownService as markdownProcessor } from "@/services/markdownService";
 import { AIService } from "@/services/ai.js";
 import { ImageService } from "@/services/image.js";
 import { ElMessage, ElMessageBox } from "element-plus";

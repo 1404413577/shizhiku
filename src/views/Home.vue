@@ -248,7 +248,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents.js'
-import { markdownProcessor } from '@/utils/markdown.js'
+import { markdownService as markdownProcessor } from '@/services/markdownService'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Upload, Select, CollectionTag, Delete,Refresh } from '@element-plus/icons-vue'

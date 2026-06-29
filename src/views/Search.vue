@@ -110,7 +110,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useDocumentsStore } from "@/stores/documents.js";
-import { markdownProcessor } from "@/utils/markdown.js";
+import { markdownService as markdownProcessor } from "@/services/markdownService";
 import { Search, Edit } from "@element-plus/icons-vue";
 
 const router = useRouter();

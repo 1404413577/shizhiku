@@ -28,6 +28,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDocumentsStore } from '@/stores/documents'
+import { markdownService } from '@/services/markdownService'
 import { Refresh, Connection, InfoFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { useDark } from '@vueuse/core'
@@ -42,18 +43,6 @@ const graphDataSource = ref('tag') // 'tag' | 'wikilinks' | 'empty'
 let chartInstance = null
 let resizeObserver = null
 
-// 从 Markdown 中提取所有 [[WikiLink]] 目标名称
-const extractWikiLinks = (content) => {
-  if (!content) return []
-  const links = []
-  const regex = /\[\[(.*?)\]\]/g
-  let match
-  while ((match = regex.exec(content)) !== null) {
-    links.push(match[1].trim())
-  }
-  return [...new Set(links)]
-}
-
 // 从文档 [[WikiLinks]] 构建标签模式数据 (当手动标签为空时的回退方案)
 const buildWikiLinkTagData = () => {
   const documents = documentsStore.documents
@@ -63,7 +52,7 @@ const buildWikiLinkTagData = () => {
 
   documents.forEach(doc => {
     if (!doc.content) return
-    const links = extractWikiLinks(doc.content)
+    const links = markdownService.extractWikiLinks(doc.content)
     if (links.length > 0) {
       links.forEach(link => {
         linkSet.add(link)
@@ -193,7 +182,7 @@ const buildGraphData = () => {
 
     // 2.2 提取双链关系逻辑 (普通文档双击)
     if (!doc.isFolder && doc.content) {
-      const wikiLinks = extractWikiLinks(doc.content)
+      const wikiLinks = markdownService.extractWikiLinks(doc.content)
       wikiLinks.forEach(targetTitle => {
         if (titleToId.has(targetTitle)) {
           const targetId = titleToId.get(targetTitle)

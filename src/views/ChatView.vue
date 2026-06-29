@@ -95,7 +95,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { useDocumentsStore } from '@/stores/documents'
 import { AIService } from '@/services/ai'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { markdownProcessor } from '@/utils/markdown.js'
+import { markdownService as markdownProcessor } from '@/services/markdownService'
 import 'highlight.js/styles/github.css'
 
 // 导入拆分的子组件

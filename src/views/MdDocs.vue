@@ -105,7 +105,7 @@ import { useRouter } from 'vue-router'
 import { useWindowSize } from '@vueuse/core'
 import { usePageSEO } from '@/composables/useSEO.js'
 import { Document, Search, Reading, Refresh, ArrowLeft } from '@element-plus/icons-vue'
-import { markdownProcessor } from '@/utils/markdown.js'
+import { markdownService as markdownProcessor } from '@/services/markdownService'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDocumentsStore } from '@/stores/documents.js'
 

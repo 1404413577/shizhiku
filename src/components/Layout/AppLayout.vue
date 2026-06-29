@@ -723,8 +723,8 @@ import {
   Connection,
 } from "@element-plus/icons-vue";
 import { useDark, useToggle } from "@vueuse/core";
-import { markdownProcessor } from "@/utils/markdown.js";
 import { templates } from "@/utils/templates.js";
+import { markdownService } from "@/services/markdownService";
 
 const isDark = useDark();
 const _toggleDark = useToggle(isDark);
@@ -734,8 +734,9 @@ const toggleDark = (val) => {
   _toggleDark(val);
 
   // 切换主题后重新渲染可能有颜色依赖的 Mermaid 图表
-  setTimeout(() => {
-    markdownProcessor.renderMermaid();
+  setTimeout(async () => {
+    if (!document.querySelector(".mermaid")) return;
+    markdownService.renderMermaid();
   }, 100);
 };
 

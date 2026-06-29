@@ -5,6 +5,7 @@ import mathjax3 from 'markdown-it-mathjax3'
 import taskLists from 'markdown-it-task-lists'
 
 import { ImageService } from '@/services/image.js'
+import { generateMarkdownAnchor, extractMarkdownText, generateMarkdownSummary } from '@/domain/markdown/markdownRules'
 
 // 初始化 Mermaid，配置为稍后手动触发，支持随黑白主题自动变化
 mermaid.initialize({
@@ -169,41 +170,17 @@ export class MarkdownProcessor {
 
   // 生成锚点
   generateAnchor(text) {
-    if (!text || typeof text !== 'string') {
-      return 'heading-' + Date.now()
-    }
-
-    const anchor = text
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fa5\s-]/g, '') // 保留中文、英文、数字、空格和连字符
-      .replace(/\s+/g, '-') // 空格替换为连字符
-      .replace(/-+/g, '-') // 多个连字符合并为一个
-      .replace(/^-|-$/g, '') // 移除开头和结尾的连字符
-      .trim()
-
-    // 如果处理后为空，使用时间戳作为备用
-    return anchor || 'heading-' + Date.now()
+    return generateMarkdownAnchor(text, 'heading')
   }
 
   // 提取纯文本用于搜索
   extractText(content) {
-    if (!content) return ''
-    return String(content)
-      .replace(/```[\s\S]*?```/g, '') // 移除代码块
-      .replace(/`[^`]*`/g, '') // 移除行内代码
-      .replace(/!\[.*?\]\(.*?\)/g, '') // 移除图片
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 保留链接文本
-      .replace(/[#*_~`]/g, '') // 移除 Markdown 标记
-      .replace(/\n+/g, ' ') // 替换换行为空格
-      .trim()
+    return extractMarkdownText(content)
   }
 
   // 生成文档摘要
   generateSummary(content, maxLength = 200) {
-    const text = this.extractText(content)
-    return text.length > maxLength 
-      ? text.substring(0, maxLength) + '...'
-      : text
+    return generateMarkdownSummary(content, maxLength)
   }
   // 获取复制事件处理方法
   handleCopyClick(event) {

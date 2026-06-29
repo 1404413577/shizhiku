@@ -378,7 +378,7 @@ export const useDocumentsStore = defineStore('documents', {
 
     async generateSummariesForExistingDocs() {
       let updatedCount = 0
-      const { markdownProcessor } = await import('@/utils/markdown.js')
+      const { markdownService: markdownProcessor } = await import('@/services/markdownService')
       for (const doc of this.documents) {
         if (doc.summary && doc.summary.trim()) continue
         if (!doc.content || !doc.content.trim()) continue

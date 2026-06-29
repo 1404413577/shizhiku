@@ -1,4 +1,4 @@
-import { markdownProcessor } from './markdown.js'
+import { markdownService as markdownProcessor } from '@/services/markdownService'
 
 /**
  * 导出文档为 Markdown 文件
