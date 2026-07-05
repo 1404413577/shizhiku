@@ -1,27 +1,18 @@
 import { nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createNode } from './useNodeModel'
+import {
+  createNode,
+  findNode as findMindMapNode,
+  findParent as findMindMapParent,
+} from './useNodeModel'
 
 export function useNodeOperations({ rootData, selectedNodeId, pushUndo, recalc, startEdit }) {
-  
-  function findNode(id, root = rootData.value) {
-    if (root.id === id) return root
-    if (!root.children) return null
-    for (const child of root.children) {
-      const found = findNode(id, child)
-      if (found) return found
-    }
-    return null
+  function findNode(id) {
+    return findMindMapNode(id, rootData.value)
   }
 
-  function findParent(id, root = rootData.value) {
-    if (!root.children) return null
-    for (const child of root.children) {
-      if (child.id === id) return root
-      const found = findParent(id, child)
-      if (found) return found
-    }
-    return null
+  function findParent(id) {
+    return findMindMapParent(id, rootData.value)
   }
 
   function addChildNode(parent) {

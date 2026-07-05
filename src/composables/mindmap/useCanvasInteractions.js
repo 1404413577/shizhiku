@@ -1,4 +1,5 @@
 import { onMounted, onUnmounted, ref } from 'vue'
+import { canMoveNode, moveNode } from './useNodeModel'
 
 export function useCanvasInteractions({
   rootData,
@@ -10,8 +11,6 @@ export function useCanvasInteractions({
   editInputRef,
   editingNode,
   finishEdit,
-  findNode,
-  findParent,
   pushUndo,
   recalc,
 }) {
@@ -81,34 +80,18 @@ export function useCanvasInteractions({
     selectedNodeId.value = node.id
     if (node !== rootData.value && event.button === 0) {
       dragNodeId.value = node.id
+      dragTargetParent.value = null
     }
-  }
-
-  function isDescendant(ancestor, child) {
-    if (!child.children) return false
-    for (const current of child.children) {
-      if (current.id === ancestor.id || isDescendant(ancestor, current)) {
-        return true
-      }
-    }
-    return false
   }
 
   function handleDrop() {
-    const node = findNode(dragNodeId.value)
     const target = dragTargetParent.value
-    if (!node || !target) return
-    if (node === target || isDescendant(target, node)) return
+    if (!dragNodeId.value || !target) return
+    if (!canMoveNode(rootData.value, dragNodeId.value, target.id)) return
 
     pushUndo()
-    const oldParent = findParent(node.id)
-    if (oldParent) {
-      oldParent.children = oldParent.children.filter((child) => child.id !== node.id)
-    }
-    if (!target.children) target.children = []
-    target.children.push(node)
-    node._level = target._level + 1
-    selectedNodeId.value = node.id
+    const movedNode = moveNode(rootData.value, dragNodeId.value, target.id)
+    if (movedNode) selectedNodeId.value = movedNode.id
   }
 
   function onCanvasMouseUp() {
@@ -133,6 +116,7 @@ export function useCanvasInteractions({
   return {
     isPanning,
     dragNodeId,
+    dragTargetParent,
     onCanvasMouseDown,
     onCanvasMouseMove,
     onCanvasMouseUp,

@@ -24,6 +24,25 @@ export function useKeyboardShortcuts({
   function onKeydown(event) {
     if (shouldIgnoreShortcut(event)) return
 
+    const key = event.key.toLowerCase()
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey && key === 'z') {
+      event.preventDefault()
+      redo()
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && key === 'z') {
+      event.preventDefault()
+      undo()
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && key === 'y') {
+      event.preventDefault()
+      redo()
+      return
+    }
+
     const node = selectedNode.value
     if (!node) return
 
@@ -39,12 +58,6 @@ export function useKeyboardShortcuts({
     } else if (event.key === 'F2') {
       event.preventDefault()
       startEdit(node)
-    } else if (event.ctrlKey && event.key === 'z') {
-      event.preventDefault()
-      undo()
-    } else if (event.ctrlKey && event.key === 'y') {
-      event.preventDefault()
-      redo()
     } else if (event.key === ' ' && node.children?.length > 0) {
       event.preventDefault()
       toggleCollapse(node)

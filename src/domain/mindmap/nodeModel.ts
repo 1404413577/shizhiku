@@ -83,6 +83,57 @@ export function findMindMapParent(id: string, root: MindMapNode): MindMapNode | 
   return null
 }
 
+export function isMindMapNodeDescendant(
+  node: MindMapNode,
+  possibleDescendant: MindMapNode
+): boolean {
+  if (!node.children) return false
+  for (const child of node.children) {
+    if (
+      child.id === possibleDescendant.id ||
+      isMindMapNodeDescendant(child, possibleDescendant)
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+export function canMoveMindMapNode(
+  root: MindMapNode,
+  nodeId: string,
+  targetParentId: string
+): boolean {
+  if (nodeId === root.id || nodeId === targetParentId) return false
+
+  const node = findMindMapNode(nodeId, root)
+  const targetParent = findMindMapNode(targetParentId, root)
+  const currentParent = findMindMapParent(nodeId, root)
+
+  if (!node || !targetParent || !currentParent) return false
+  if (currentParent.id === targetParent.id) return false
+  return !isMindMapNodeDescendant(node, targetParent)
+}
+
+export function moveMindMapNode(
+  root: MindMapNode,
+  nodeId: string,
+  targetParentId: string
+): MindMapNode | null {
+  if (!canMoveMindMapNode(root, nodeId, targetParentId)) return null
+
+  const node = findMindMapNode(nodeId, root)
+  const currentParent = findMindMapParent(nodeId, root)
+  const targetParent = findMindMapNode(targetParentId, root)
+
+  if (!node || !currentParent || !targetParent) return null
+
+  currentParent.children = currentParent.children.filter((child) => child.id !== node.id)
+  if (!targetParent.children) targetParent.children = []
+  targetParent.children.push(node)
+  return node
+}
+
 export function collectMindMapNodes(root: MindMapNode) {
   const nodes: MindMapNode[] = []
   function walk(node: MindMapNode) {

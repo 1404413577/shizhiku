@@ -96,6 +96,7 @@
               :class="{
                 selected: selectedNodeId === node.id,
                 dragging: dragNodeId === node.id,
+                'drop-target': dragTargetParent?.id === node.id,
               }"
               @mousedown.stop="onNodeMouseDown($event, node)"
               @dblclick.stop="startEdit(node)"
@@ -321,7 +322,6 @@ import { useKeyboardShortcuts } from "@/composables/mindmap/useKeyboardShortcuts
 import { useUndoRedo } from "@/composables/mindmap/useUndoRedo";
 import { useNodeOperations } from "@/composables/mindmap/useNodeOperations";
 import { usePersist } from "@/composables/mindmap/usePersist";
-// 导入 Markdown 转换器
 import { useMarkdown } from "@/composables/mindmap/useMarkdown";
 
 const rootData = ref(createNode("中心主题", 0));
@@ -329,7 +329,7 @@ const selectedNodeId = ref(null);
 const isSidebarOpen = ref(false);
 
 const lineStyle = ref("curve");
-const layoutMode = ref("right"); // 新增：'right' 或 'centered'
+const layoutMode = ref("right");
 
 const canvasContainer = ref(null);
 const svgRef = ref(null);
@@ -418,7 +418,6 @@ const themeNames = Object.keys(themes).map((k) => ({
 const currentThemeName = ref("default");
 const currentTheme = computed(() => themes[currentThemeName.value]);
 
-// 传入 layoutMode 驱动左右分支布局
 const { flatNodes, connections, recalc } = useLayout(
   rootData,
   currentTheme,
@@ -490,6 +489,7 @@ const selectedNode = computed(() =>
 const {
   isPanning,
   dragNodeId,
+  dragTargetParent,
   onCanvasMouseDown,
   onCanvasMouseMove,
   onCanvasMouseUp,
@@ -504,8 +504,6 @@ const {
   editInputRef,
   editingNode,
   finishEdit,
-  findNode,
-  findParent,
   pushUndo,
   recalc,
 });
@@ -527,7 +525,7 @@ const {
 
 watch(currentThemeName, () => recalc());
 watch(lineStyle, () => recalc());
-watch(layoutMode, () => recalc()); // 模式切换自动排版
+watch(layoutMode, () => recalc());
 
 useKeyboardShortcuts({
   editingNode,
@@ -554,7 +552,6 @@ function handleImportMarkdown() {
   ElMessage.success("导入成功！");
 }
 
-// ... 此处保留原有的 handleDeleteSession, applyStyleFromPanel, SVG 画布拖拽事件 (onCanvasMouseDown 等) ...
 function handleDeleteSession(id) {
   ElMessageBox.confirm("确定要删除吗？", "提示", { type: "warning" })
     .then(() => deleteSession(id))
@@ -585,7 +582,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 保持原有样式不变 */
 .mindmap-app {
   display: flex;
   flex-direction: row;
@@ -628,6 +624,10 @@ onMounted(() => {
 }
 .mm-node-group.selected rect:first-child {
   filter: drop-shadow(0 0 0 2px var(--el-color-primary)) !important;
+}
+.mm-node-group.drop-target rect:first-child {
+  stroke: var(--el-color-success) !important;
+  stroke-width: 2.5 !important;
 }
 .mm-inline-edit {
   position: absolute;
