@@ -191,37 +191,24 @@ import { useDocumentsStore } from "@/stores/documents.js";
 import { markdownService as markdownProcessor } from "@/services/markdownService";
 import { AIService } from "@/services/ai.js";
 import { ImageService } from "@/services/image.js";
-import { ElMessage, ElMessageBox } from "element-plus";
 import { Close, MagicStick } from "@element-plus/icons-vue";
-import { exportAsMarkdown, exportAsHTML, exportAsPDF } from "@/utils/export.js";
 
 // 引入子组件
 import EditorToolbar from "@/components/Editor/EditorToolbar.vue";
 import EditorTags from "@/components/Editor/EditorTags.vue";
 import EditorToc from "@/components/Editor/EditorToc.vue";
 import { useAutoSave } from "@/composables/editor/useAutoSave";
+import { createEditorExtensions } from "@/composables/editor/editorExtensions";
+import { useEditorActions } from "@/composables/editor/useEditorActions";
+import { useEditorAi } from "@/composables/editor/useEditorAi";
 import { useEditorDocument } from "@/composables/editor/useEditorDocument";
 import { useEditorImages } from "@/composables/editor/useEditorImages";
 import { useEditorPreview } from "@/composables/editor/useEditorPreview";
+import { useEditorPreviewClick } from "@/composables/editor/useEditorPreviewClick";
 
 // Tiptap imports
-import { EditorContent, useEditor, mergeAttributes } from "@tiptap/vue-3";
+import { EditorContent, useEditor } from "@tiptap/vue-3";
 import { FloatingMenu, BubbleMenu } from "@tiptap/vue-3/menus";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import Image from "@tiptap/extension-image";
-
-// Table imports (已使用命名导入)
-import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table-row";
-import { TableCell } from "@tiptap/extension-table-cell";
-import { TableHeader } from "@tiptap/extension-table-header";
-
-import { Commands, suggestionConfig } from "@/utils/suggestion.js";
-import { ExcalidrawExtension } from "@/utils/excalidrawExtension.js";
-import { Markdown } from "tiptap-markdown";
 import "@excalidraw/excalidraw/index.css";
 
 const route = useRoute();
@@ -235,99 +222,11 @@ const goBack = () => {
 
 const documentId = ref(route.params.id);
 const editorMode = ref("edit");
-const isFocusMode = ref(false);
 const previewRef = ref(null);
-const aiLoading = ref(false);
-const aiWritingLoading = ref(false);
-const aiAbortController = ref(null);
-
-const LazyImage = Image.extend({
-  renderHTML({ HTMLAttributes }) {
-    const { src, ...rest } = HTMLAttributes;
-    const isLazy =
-      src &&
-      !src.startsWith("http://") &&
-      !src.startsWith("https://") &&
-      !src.startsWith("data:");
-    return [
-      "img",
-      mergeAttributes(this.options.HTMLAttributes, rest, {
-        src: isLazy
-          ? "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-          : src,
-        "data-src": isLazy ? src : null,
-        class: isLazy ? "zhishiku-lazy-image" : null,
-      }),
-    ];
-  },
-});
 
 const editor = useEditor({
   content: "",
-  extensions: [
-    StarterKit,
-    Table.configure({
-      resizable: true,
-      HTMLAttributes: { class: "tiptap-table" },
-    }),
-    TableRow,
-    TableHeader,
-    TableCell,
-    ExcalidrawExtension,
-    Markdown.configure({
-      html: true,
-      transformPastedText: true,
-      tightLists: true,
-      tightListClass: "tight",
-      bulletListMarker: "-",
-      linkify: true,
-      breaks: true,
-      nodes: {
-        excalidraw: {
-          // ✅ 正确代码：确保 '\n```' 是在一行内的完整字符串
-          serialize: (state, node) => {
-            state.write("```excalidraw\n");
-            state.write(node.attrs.data || "");
-            state.write("\n```");
-            state.closeBlock(node);
-          },
-
-          parse: {
-            setup(markdownit) {
-              markdownit.use((md) => {
-                const defaultRender =
-                  md.renderer.rules.fence ||
-                  function (tokens, idx, options, env, self) {
-                    return self.renderToken(tokens, idx, options);
-                  };
-                md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-                  const token = tokens[idx];
-                  if (token.info === "excalidraw")
-                    return `<div data-type="excalidraw" data-data="${md.utils.escapeHtml(token.content)}"></div>`;
-                  return defaultRender(tokens, idx, options, env, self);
-                };
-              });
-            },
-            updateDOM(dom) {
-              if (dom.getAttribute("data-type") === "excalidraw") {
-                return {
-                  type: "excalidraw",
-                  attrs: { data: dom.getAttribute("data-data") },
-                };
-              }
-            },
-          },
-        },
-      },
-    }),
-    Placeholder.configure({
-      placeholder: "开始编写您的内容... (输入 / 唤出快捷菜单)",
-    }),
-    TaskList,
-    TaskItem.configure({ nested: true }),
-    LazyImage.configure({ inline: false, allowBase64: true }),
-    Commands.configure({ suggestion: suggestionConfig }),
-  ],
+  extensions: createEditorExtensions(),
   editorProps: {
     handlePaste(view, event, slice) {
       const items = event.clipboardData?.items;
@@ -421,222 +320,43 @@ const { handleContentChange, clearAutoSave } = useAutoSave({
   afterChange: () => refreshPreviewAssets(100),
 });
 
-const handleAIPolish = async () => {
-  if (!editor.value) return;
-  const { empty, from, to } = editor.value.state.selection;
-  if (empty) {
-    ElMessage.warning("请先选中文本");
-    return;
-  }
-  const selectedText = editor.value.state.doc.textBetween(from, to, " ");
-  if (!selectedText.trim()) return;
+const {
+  aiLoading,
+  aiWritingLoading,
+  handleAIPolish,
+  handleAIWrite,
+  stopAIWrite,
+  handleEditorAiAction,
+} = useEditorAi({
+  editor,
+  documentTitle,
+  documentContent,
+  aiService: AIService,
+  markdownProcessor,
+  saveDocument,
+});
 
-  aiLoading.value = true;
-  try {
-    const polishedText = await AIService.polishText(
-      selectedText,
-      "请润色并优化这段文字，使其更加通顺、专业，修正错别字。",
-      null,
-    );
-    editor.value.chain().focus().insertContent(polishedText).run();
-    ElMessage.success("润色完成");
-  } catch (err) {
-    ElMessage.error(err.message || "AI 润色失败");
-  } finally {
-    aiLoading.value = false;
-  }
-};
+const {
+  isFocusMode,
+  toggleFocusMode,
+  handleEditorExport,
+  insertTable,
+  handleKeydown,
+  formatTime,
+} = useEditorActions({
+  editor,
+  documentTitle,
+  documentContent,
+  saveDocument,
+});
 
-const handleAIWrite = async () => {
-  const currentContent = editor.value?.storage.markdown.getMarkdown() || "";
-  if (currentContent.trim()) {
-    try {
-      await ElMessageBox.confirm(
-        "当前文档已有内容，AI 帮写将覆盖现有内容，是否继续？",
-        "AI 帮写",
-        {
-          confirmButtonText: "继续",
-          cancelButtonText: "取消",
-          type: "warning",
-        },
-      );
-    } catch {
-      return;
-    }
-  }
-  try {
-    const { value: title } = await ElMessageBox.prompt(
-      "请输入文档标题，AI 将根据标题自动生成文档内容",
-      "AI 帮写",
-      {
-        confirmButtonText: "开始生成",
-        cancelButtonText: "取消",
-        inputPlaceholder: "输入标题...",
-        inputValue: documentTitle.value || "",
-      },
-    );
-    if (!title || !title.trim()) return;
-
-    documentTitle.value = title.trim();
-    aiWritingLoading.value = true;
-    editor.value?.commands.setContent("");
-    documentContent.value = "";
-
-    // 创建用于中止请求的 AbortController
-    aiAbortController.value = new AbortController();
-
-    ElMessage.info("正在生成文档内容，请稍候...");
-
-    const systemPrompt = `你是一个专业的文档撰写助手。请根据用户提供的标题，撰写一篇完整、结构清晰的Markdown文档。要求：\n1. 使用适当的标题层级（##、###）\n2. 包含段落、列表、代码块等丰富的内容结构\n3. 内容专业、准确、有条理\n4. 直接返回Markdown内容，不要包含"好的"、"以下是"等开头语`;
-
-    try {
-      await AIService.chatCompletion(
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `标题：${title}` },
-        ],
-        (_delta, fullText) => {
-          editor.value?.commands.setContent(fullText);
-          documentContent.value = fullText;
-        },
-        null,
-        { signal: aiAbortController.value.signal },
-      );
-      await saveDocument();
-      ElMessage.success("AI 帮写完成");
-    } catch (err) {
-      if (err.name === "AbortError") {
-        ElMessage.warning("已停止生成");
-      } else {
-        throw err;
-      }
-    }
-  } catch (err) {
-    if (err !== "cancel" && err !== "close")
-      ElMessage.error(err.message || "AI 帮写失败");
-  } finally {
-    aiWritingLoading.value = false;
-    aiAbortController.value = null;
-  }
-};
-
-const stopAIWrite = () => {
-  aiAbortController.value?.abort();
-};
-
-const toggleFocusMode = () => {
-  isFocusMode.value = !isFocusMode.value;
-};
-
-const handleEditorExport = (format) => {
-  const title = documentTitle.value || "未命名文档";
-  const content = documentContent.value || "";
-  const md = `# ${title}\n\n${content}`;
-  if (format === "md") exportAsMarkdown(title, md);
-  else if (format === "html") exportAsHTML(title, md);
-  else if (format === "pdf") exportAsPDF(title);
-};
-
-const insertTable = ({ rows, cols }) => {
-  if (!editor.value) return;
-  editor.value
-    .chain()
-    .focus()
-    .insertTable({ rows: rows, cols: cols, withHeaderRow: true })
-    .run();
-};
-
-const formatTime = (date) => date.toLocaleTimeString("zh-CN");
-
-const handlePreviewClick = async (event) => {
-  markdownProcessor.handleCopyClick(event);
-  const target = event.target;
-  if (
-    target &&
-    target.tagName === "A" &&
-    target.classList.contains("obsidian-link")
-  ) {
-    event.preventDefault();
-    const docTitle = target.getAttribute("data-doc-title");
-    if (!docTitle) return;
-    const allDocs = documentsStore.documents;
-    const targetDoc = allDocs.find((d) => d.title === docTitle && !d.isFolder);
-    if (targetDoc) {
-      handleContentChange();
-      router.push(`/view/${encodeURIComponent(targetDoc.id)}`);
-    } else {
-      try {
-        await ElMessageBox.confirm(
-          `文档 "[[${docTitle}]]" 尚不存在，是否立即创建？`,
-          "发现新链接",
-          { confirmButtonText: "创建", cancelButtonText: "取消", type: "info" },
-        );
-        const newDoc = await documentsStore.createDocument(docTitle);
-        router.push(`/editor/${encodeURIComponent(newDoc.id)}`);
-      } catch (e) {}
-    }
-    return;
-  }
-  if (
-    target &&
-    target.tagName === "INPUT" &&
-    target.type === "checkbox" &&
-    target.classList.contains("task-list-item-checkbox")
-  ) {
-    const newMarkdown = markdownProcessor.syncCheckboxUpdate(
-      documentContent.value,
-      target,
-    );
-    if (newMarkdown !== null) {
-      documentContent.value = newMarkdown;
-      handleContentChange();
-    } else {
-      target.checked = !target.checked;
-      ElMessage.warning("未能同步待办事项状态");
-    }
-  }
-};
-
-const handleKeydown = (event) => {
-  if (event.ctrlKey || event.metaKey) {
-    if (event.key === "s") {
-      event.preventDefault();
-      saveDocument();
-    } else if (event.key === "F" && event.shiftKey) {
-      event.preventDefault();
-      toggleFocusMode();
-    }
-  }
-  if (event.key === "Escape" && isFocusMode.value) toggleFocusMode();
-};
-
-const handleEditorAiAction = (event) => {
-  const { type } = event.detail;
-  if (type === "summary") {
-    const content = editor.value?.storage.markdown.getMarkdown() || "";
-    if (!content.trim()) {
-      ElMessage.warning("文档内容为空，无法生成总结");
-      return;
-    }
-    aiLoading.value = true;
-    AIService.generateSummary(content, () => {})
-      .then((summary) => {
-        ElMessageBox.alert(
-          `<div class="markdown-body">${markdownProcessor.render(summary)}</div>`,
-          "AI 总结",
-          { dangerouslyUseHTMLString: true, confirmButtonText: "关闭" },
-        );
-      })
-      .catch((err) => {
-        ElMessage.error(err.message || "AI 总结失败");
-      })
-      .finally(() => {
-        aiLoading.value = false;
-      });
-  } else if (type === "polish") {
-    handleAIPolish();
-  }
-};
+const { handlePreviewClick } = useEditorPreviewClick({
+  documentContent,
+  documentsStore,
+  router,
+  markdownProcessor,
+  handleContentChange,
+});
 
 onMounted(async () => {
   await loadDocument();
