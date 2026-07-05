@@ -128,6 +128,7 @@
 - rollup-plugin-visualizer / vite-bundle-analyzer：包体分析。
 - Playwright：端到端测试依赖。
 - 自定义 Vite 插件：`docs-loader`、`seo-plugin`、`changelog-plugin`。
+- 轻量 Node 单元测试：覆盖设置持久化、备份解析和 AI 错误归一化等核心纯逻辑。
 
 ## 目录结构
 
@@ -140,10 +141,12 @@
 │   ├── components/           # 通用组件、编辑器组件、聊天组件、思维导图组件
 │   ├── composables/          # SEO、思维导图操作等组合式逻辑
 │   ├── router/               # Vue Router 路由配置
-│   ├── services/             # AI、本地 AI、图片、本地文件系统服务
-│   ├── stores/               # Pinia 文档与设置 Store
-│   ├── utils/                # Markdown、搜索、存储、导出、WebDAV 等工具
+│   ├── repositories/         # 文档、设置等持久化适配层
+│   ├── services/             # AI、同步、备份、本地工作区、图片等服务
+│   ├── stores/               # Pinia 文档、设置和工作区 Store
+│   ├── utils/                # Markdown、搜索、存储、导出等底层工具
 │   └── views/                # 页面视图
+├── tests/                    # 轻量单元测试脚本
 ├── vite-plugins/             # 项目自定义 Vite 插件
 ├── index.html
 ├── package.json
@@ -184,6 +187,9 @@ npm run dev
 
 # 生产构建
 npm run build
+
+# 单元测试
+npm run test
 
 # 预览生产构建
 npm run preview

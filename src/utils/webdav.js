@@ -77,32 +77,3 @@ export class WebDAVClient {
     }
   }
 }
-
-export const syncWithWebDAV = async (settings, localDocs) => {
-  if (!settings.webdavUrl || !settings.webdavUsername || !settings.webdavPassword) {
-    throw new Error('WebDAV 配置不完整')
-  }
-
-  const client = new WebDAVClient({
-    url: settings.webdavUrl,
-    username: settings.webdavUsername,
-    password: settings.webdavPassword
-  })
-
-  const remotePath = settings.webdavPath.startsWith('/') ? settings.webdavPath.substring(1) : settings.webdavPath
-  const fileName = 'all_docs_backup.json'
-  const fullPath = `${remotePath}/${fileName}`
-
-  // 1. 确保目录存在
-  await client.mkdir(remotePath)
-
-  // 2. 一个极简的覆盖策略：目前仅实现单向/整体备份
-  // 实际生产应用需要实现 ETag 比较或 Timestamp 比较
-  const dataToUpload = JSON.stringify({
-    documents: localDocs,
-    lastSync: new Date().toISOString()
-  })
-
-  await client.put(fullPath, dataToUpload)
-  return true
-}

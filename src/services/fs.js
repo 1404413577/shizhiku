@@ -88,20 +88,11 @@ export const FileSystem = {
     await this.handle.removeEntry(safeName)
   },
 
-  async getFiles() {
-    return await this.readAllFiles();
-  },
-
-
-
-  // 🚨 新增：向下兼容旧代码的别名方法
   async requestWorkspaceAccess() {
     return await this.mountWorkspace()
   },
 
-  // 🚨 新增：向下兼容旧版 AppLayout.vue 的调用
   async loadStoredHandle() {
-    // 复用最新的权限验证逻辑
     const hasPermission = await this.verifyPermission()
     return hasPermission ? this.handle : null
   }
