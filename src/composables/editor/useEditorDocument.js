@@ -23,6 +23,7 @@ export function useEditorDocument({
   })
   const saving = ref(false)
   const lastSaved = ref(null)
+  let saveQueued = false
 
   async function loadDocument() {
     if (!documentId.value) {
@@ -70,7 +71,10 @@ export function useEditorDocument({
   }
 
   async function saveDocument() {
-    if (saving.value) return
+    if (saving.value) {
+      saveQueued = true
+      return
+    }
 
     saving.value = true
     try {
@@ -85,10 +89,11 @@ export function useEditorDocument({
       if (documentId.value) {
         await documentsStore.saveDocument(documentId.value, updates)
       } else {
-        const doc = await documentsStore.createDocument(
+        const created = await documentsStore.createDocument(
           documentTitle.value,
           updates.content,
         )
+        const doc = await documentsStore.saveDocument(created.id, updates)
         documentId.value = doc.id
         router.replace(`/editor/${doc.id}`)
       }
@@ -100,6 +105,10 @@ export function useEditorDocument({
       ElMessage.error('保存失败')
     } finally {
       saving.value = false
+      if (saveQueued) {
+        saveQueued = false
+        await saveDocument()
+      }
     }
   }
 
