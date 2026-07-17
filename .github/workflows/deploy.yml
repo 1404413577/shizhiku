@@ -39,8 +39,8 @@ jobs:
       - name: Build Project 🏗️
         run: npm run build
         env:
-          VITE_BASE_PATH: /shizhiku/
-          VITE_SITE_URL: https://1404413577.github.io/shizhiku/
+          VITE_BASE_PATH: /zhishiku/
+          VITE_SITE_URL: https://1404413577.github.io/zhishiku/
         
       - name: Setup GitHub Pages ⚙️
         uses: actions/configure-pages@v4
